@@ -17,6 +17,10 @@ body {
 body {
   font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100svh;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(239, 68, 68, 0.12), transparent),
+    radial-gradient(ellipse 50% 30% at 110% 30%, rgba(217, 70, 239, 0.08), transparent),
+    linear-gradient(180deg, #0b0b12 0%, #0a0a10 100%);
 }
 
 /* Subtle scroll bar on desktop */
@@ -37,19 +41,22 @@ body {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
   }
   .card {
-    @apply rounded-xl bg-ink-900/60 border border-ink-800/70 overflow-hidden;
+    @apply rounded-2xl bg-ink-900/60 border border-white/10 overflow-hidden;
+  }
+  .glass {
+    @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-brand-600 hover:bg-brand-500 text-white;
+    @apply btn bg-gradient-to-r from-brand-500 to-fuchsia-500 text-white shadow-[0_10px_30px_-10px_rgba(239,68,68,0.6)] hover:brightness-110;
   }
   .btn-ghost {
     @apply btn bg-ink-800/60 hover:bg-ink-800 text-ink-100;
   }
   .chip {
-    @apply inline-flex items-center rounded-full bg-ink-800/60 border border-ink-700/60 px-2.5 py-0.5 text-[11px] font-medium text-ink-200;
+    @apply inline-flex items-center rounded-full bg-white/5 border border-white/10 px-2.5 py-0.5 text-[11px] font-medium text-ink-200;
   }
   .skeleton {
     @apply bg-gradient-to-r from-ink-800/40 via-ink-700/60 to-ink-800/40 bg-[length:200%_100%] animate-shimmer;
@@ -65,6 +72,29 @@ body {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+  .line-clamp-4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .fade-in-up {
+    animation: fadeInUp 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
