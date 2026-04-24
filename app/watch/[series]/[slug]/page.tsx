@@ -1,6 +1,8 @@
 import { getDetail, getStream } from "@/lib/api";
 import VideoPlayer from "@/components/VideoPlayer";
 import EpisodeList from "@/components/EpisodeList";
+import HistoryTracker from "@/components/HistoryTracker";
+import Comments from "@/components/Comments";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -68,25 +70,34 @@ export default async function WatchPage({ params }: Props) {
       </div>
 
       {stream ? (
-        <VideoPlayer
-          stream={stream}
-          title={`${detail?.judul ?? series} episode ${current?.ch ?? ""}`}
-          poster={detail?.cover}
-          prevHref={
-            prevEp
-              ? `/watch/${encodeURIComponent(series)}/${encodeURIComponent(
-                  prevEp.url
-                )}`
-              : null
-          }
-          nextHref={
-            nextEp
-              ? `/watch/${encodeURIComponent(series)}/${encodeURIComponent(
-                  nextEp.url
-                )}`
-              : null
-          }
-        />
+        <>
+          <VideoPlayer
+            stream={stream}
+            title={`${detail?.judul ?? series} episode ${current?.ch ?? ""}`}
+            poster={detail?.cover}
+            prevHref={
+              prevEp
+                ? `/watch/${encodeURIComponent(series)}/${encodeURIComponent(
+                    prevEp.url
+                  )}`
+                : null
+            }
+            nextHref={
+              nextEp
+                ? `/watch/${encodeURIComponent(series)}/${encodeURIComponent(
+                    nextEp.url
+                  )}`
+                : null
+            }
+          />
+          <HistoryTracker
+            series={series}
+            slug={slug}
+            title={detail?.judul ?? series}
+            episode={current?.ch ?? ""}
+            cover={detail?.cover ?? ""}
+          />
+        </>
       ) : (
         <div className="grid aspect-video w-full place-items-center rounded-xl border border-ink-800 bg-ink-900 text-sm text-ink-300">
           Stream tidak tersedia untuk episode ini.
@@ -108,6 +119,8 @@ export default async function WatchPage({ params }: Props) {
           <p className="text-sm text-ink-300">{detail.sinopsis}</p>
         </section>
       ) : null}
+
+      <Comments series={series} />
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { signIn, signOut, useSession } from "next-auth/react";
-import { LogIn, LogOut, User } from "lucide-react";
+import Link from "next/link";
+import { LogIn, LogOut, User, UserCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export default function AuthButton({ compact = false }: { compact?: boolean }) {
@@ -81,6 +82,13 @@ export default function AuthButton({ compact = false }: { compact?: boolean }) {
             </div>
           </div>
           <div className="my-1 h-px bg-ink-800/80" />
+          <Link
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-ink-200 hover:bg-ink-800/80 hover:text-white"
+          >
+            <UserCircle className="h-4 w-4" /> Profil saya
+          </Link>
           <button
             type="button"
             onClick={() => signOut()}

@@ -1,5 +1,6 @@
 import { getDetail } from "@/lib/api";
 import EpisodeList from "@/components/EpisodeList";
+import Comments from "@/components/Comments";
 import { notFound } from "next/navigation";
 import { CalendarDays, Star, Tv, User } from "lucide-react";
 import Link from "next/link";
@@ -108,6 +109,8 @@ export default async function DetailPage({ params }: Props) {
         <h2 className="mb-3 text-lg font-bold">Daftar Episode</h2>
         <EpisodeList series={d.series_id} episodes={d.chapter} />
       </section>
+
+      <Comments series={params.series} />
     </article>
   );
 }

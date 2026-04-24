@@ -1,6 +1,7 @@
 import { getHome, getOngoing } from "@/lib/api";
 import AnimeGrid from "@/components/AnimeGrid";
 import SectionHeader from "@/components/SectionHeader";
+import ContinueWatching from "@/components/ContinueWatching";
 import { Flame, Play, Sparkles, Star } from "lucide-react";
 import type { AnimeCardItem } from "@/lib/types";
 
@@ -89,6 +90,8 @@ export default async function HomePage() {
           </div>
         </section>
       ) : null}
+
+      <ContinueWatching />
 
       {hotStrip.length ? (
         <section>
