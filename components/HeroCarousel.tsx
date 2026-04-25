@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Flame, Play, Star } from "lucide-react";
 import { formatViews } from "@/lib/views";
-import { findGenre, slugify } from "@/lib/genres";
+import { slugify } from "@/lib/genres";
 
 export type HeroSlide = {
   series: string;
@@ -127,20 +127,15 @@ export default function HeroCarousel({ slides, intervalMs = 5000 }: Props) {
           </div>
           {slide.genres?.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {slide.genres.slice(0, 4).map((g) => {
-                const slug = slugify(g);
-                const known = findGenre(slug);
-                return (
-                  <Link
-                    key={g}
-                    href={`/genre/${slug}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-0.5 text-[11px] font-medium text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
-                  >
-                    {known?.emoji ? <span>{known.emoji}</span> : null}
-                    {g}
-                  </Link>
-                );
-              })}
+              {slide.genres.slice(0, 4).map((g) => (
+                <Link
+                  key={g}
+                  href={`/genre/${slugify(g)}`}
+                  className="inline-flex items-center rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
+                >
+                  {g}
+                </Link>
+              ))}
             </div>
           ) : null}
           {slide.synopsis ? (

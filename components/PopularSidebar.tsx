@@ -81,15 +81,14 @@ export default async function PopularSidebar({ candidates }: Props) {
             <Link
               key={g.slug}
               href={`/genre/${g.slug}`}
-              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-1 text-[11px] font-medium text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
+              className="inline-flex items-center rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
             >
-              <span>{g.emoji}</span>
               {g.label}
             </Link>
           ))}
           <Link
             href="/genre"
-            className="inline-flex items-center rounded-full border border-indigo-400/60 bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold text-indigo-100 hover:bg-indigo-500/25"
+            className="inline-flex items-center rounded-full border border-indigo-400/60 bg-indigo-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-100 hover:bg-indigo-500/25"
           >
             Semua →
           </Link>

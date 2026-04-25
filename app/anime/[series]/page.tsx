@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Eye, Star, Tv, User } from "lucide-react";
 import Link from "next/link";
 import { incrementView, formatViews } from "@/lib/views";
-import { slugify, findGenre } from "@/lib/genres";
+import { slugify } from "@/lib/genres";
 
 export const dynamic = "force-dynamic";
 
@@ -59,20 +59,15 @@ export default async function DetailPage({ params }: Props) {
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold sm:text-3xl">{d.judul}</h1>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {d.genre?.map((g) => {
-                const slug = slugify(g);
-                const known = findGenre(slug);
-                return (
-                  <Link
-                    key={g}
-                    href={`/genre/${slug}`}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-0.5 text-[11px] font-medium text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
-                  >
-                    {known?.emoji ? <span>{known.emoji}</span> : null}
-                    {g}
-                  </Link>
-                );
-              })}
+              {d.genre?.map((g) => (
+                <Link
+                  key={g}
+                  href={`/genre/${slugify(g)}`}
+                  className="inline-flex items-center rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
+                >
+                  {g}
+                </Link>
+              ))}
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-y-1.5 text-sm text-ink-300 sm:grid-cols-3">
               <div className="flex items-center gap-1.5">

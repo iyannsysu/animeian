@@ -1,42 +1,41 @@
 export type Genre = {
   slug: string;
   label: string;
-  emoji?: string;
 };
 
 export const GENRES: Genre[] = [
-  { slug: "action", label: "Action", emoji: "⚔️" },
-  { slug: "adventure", label: "Adventure", emoji: "🗺️" },
-  { slug: "comedy", label: "Comedy", emoji: "😂" },
-  { slug: "drama", label: "Drama", emoji: "🎭" },
-  { slug: "fantasy", label: "Fantasy", emoji: "🧙" },
-  { slug: "isekai", label: "Isekai", emoji: "🌀" },
-  { slug: "romance", label: "Romance", emoji: "💖" },
-  { slug: "sci-fi", label: "Sci-Fi", emoji: "🚀" },
-  { slug: "slice-of-life", label: "Slice of Life", emoji: "🍵" },
-  { slug: "sports", label: "Sports", emoji: "⚽" },
-  { slug: "supernatural", label: "Supernatural", emoji: "👻" },
-  { slug: "mystery", label: "Mystery", emoji: "🔍" },
-  { slug: "thriller", label: "Thriller", emoji: "🕶️" },
-  { slug: "horror", label: "Horror", emoji: "💀" },
-  { slug: "mecha", label: "Mecha", emoji: "🤖" },
-  { slug: "music", label: "Music", emoji: "🎵" },
-  { slug: "psychological", label: "Psychological", emoji: "🧠" },
-  { slug: "school", label: "School", emoji: "🏫" },
-  { slug: "shounen", label: "Shounen", emoji: "🔥" },
-  { slug: "shoujo", label: "Shoujo", emoji: "🌸" },
-  { slug: "seinen", label: "Seinen", emoji: "🗡️" },
-  { slug: "josei", label: "Josei", emoji: "🌷" },
-  { slug: "harem", label: "Harem", emoji: "💘" },
-  { slug: "ecchi", label: "Ecchi", emoji: "🌶️" },
-  { slug: "martial-arts", label: "Martial Arts", emoji: "🥋" },
-  { slug: "military", label: "Military", emoji: "🎖️" },
-  { slug: "magic", label: "Magic", emoji: "✨" },
-  { slug: "game", label: "Game", emoji: "🎮" },
-  { slug: "vampire", label: "Vampire", emoji: "🧛" },
-  { slug: "historical", label: "Historical", emoji: "📜" },
-  { slug: "demons", label: "Demons", emoji: "😈" },
-  { slug: "super-power", label: "Super Power", emoji: "💥" },
+  { slug: "action", label: "Action" },
+  { slug: "adventure", label: "Adventure" },
+  { slug: "comedy", label: "Comedy" },
+  { slug: "drama", label: "Drama" },
+  { slug: "fantasy", label: "Fantasy" },
+  { slug: "isekai", label: "Isekai" },
+  { slug: "romance", label: "Romance" },
+  { slug: "sci-fi", label: "Sci-Fi" },
+  { slug: "slice-of-life", label: "Slice of Life" },
+  { slug: "sports", label: "Sports" },
+  { slug: "supernatural", label: "Supernatural" },
+  { slug: "mystery", label: "Mystery" },
+  { slug: "thriller", label: "Thriller" },
+  { slug: "horror", label: "Horror" },
+  { slug: "mecha", label: "Mecha" },
+  { slug: "music", label: "Music" },
+  { slug: "psychological", label: "Psychological" },
+  { slug: "school", label: "School" },
+  { slug: "shounen", label: "Shounen" },
+  { slug: "shoujo", label: "Shoujo" },
+  { slug: "seinen", label: "Seinen" },
+  { slug: "josei", label: "Josei" },
+  { slug: "harem", label: "Harem" },
+  { slug: "ecchi", label: "Ecchi" },
+  { slug: "martial-arts", label: "Martial Arts" },
+  { slug: "military", label: "Military" },
+  { slug: "magic", label: "Magic" },
+  { slug: "game", label: "Game" },
+  { slug: "vampire", label: "Vampire" },
+  { slug: "historical", label: "Historical" },
+  { slug: "demons", label: "Demons" },
+  { slug: "super-power", label: "Super Power" },
 ];
 
 export function slugify(s: string): string {
@@ -47,7 +46,10 @@ export function slugify(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function matchesGenre(genreList: string[] | undefined, slug: string): boolean {
+export function matchesGenre(
+  genreList: string[] | undefined,
+  slug: string
+): boolean {
   if (!genreList?.length) return false;
   return genreList.some((g) => slugify(g) === slug);
 }
