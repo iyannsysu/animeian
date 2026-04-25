@@ -204,7 +204,7 @@ export default async function HomePage() {
               <SectionHeader
                 title="Ongoing Series"
                 subtitle="Anime yang sedang tayang, update tiap minggu"
-                href="/anime-list"
+                href="/ongoing"
               />
               <AnimeRow items={ongoingRow} />
             </section>
@@ -215,6 +215,7 @@ export default async function HomePage() {
               <SectionHeader
                 title="Anime Completed"
                 subtitle="Sudah tamat — bisa ditonton langsung habis"
+                href="/completed"
               />
               <AnimeRow items={completedRow} badgeLabel="Completed" />
             </section>
@@ -224,6 +225,7 @@ export default async function HomePage() {
             <SectionHeader
               title="Anime Populer"
               subtitle="Ranking berdasarkan jumlah penonton"
+              href="/populer"
             />
             <PopularTabs
               buckets={[
@@ -239,6 +241,7 @@ export default async function HomePage() {
               <SectionHeader
                 title="Update Terbaru"
                 subtitle="Rilis paling baru dari katalog"
+                href="/anime-list"
               />
               <AnimeGrid items={latest} />
             </section>

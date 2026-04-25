@@ -21,9 +21,9 @@ export default function SectionHeader({
       {href ? (
         <Link
           href={href}
-          className="inline-flex items-center gap-0.5 text-xs text-brand-400 hover:text-brand-300 sm:text-sm"
+          className="inline-flex items-center gap-0.5 rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/20 hover:text-white sm:text-[11px]"
         >
-          Lihat semua <ChevronRight className="h-4 w-4" />
+          Lihat semua <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       ) : null}
     </div>
