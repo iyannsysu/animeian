@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Flame, Play, Star } from "lucide-react";
 import { formatViews } from "@/lib/views";
+import { findGenre, slugify } from "@/lib/genres";
 
 export type HeroSlide = {
   series: string;
@@ -104,7 +105,7 @@ export default function HeroCarousel({ slides, intervalMs = 5000 }: Props) {
           ) : null}
         </div>
         <div className="flex flex-col fade-in-up">
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-brand-500/40 bg-brand-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-200">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-200">
             <Flame className="h-3 w-3" /> Trending Ongoing
           </span>
           <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight sm:text-4xl">
@@ -126,11 +127,20 @@ export default function HeroCarousel({ slides, intervalMs = 5000 }: Props) {
           </div>
           {slide.genres?.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {slide.genres.slice(0, 4).map((g) => (
-                <span key={g} className="chip">
-                  {g}
-                </span>
-              ))}
+              {slide.genres.slice(0, 4).map((g) => {
+                const slug = slugify(g);
+                const known = findGenre(slug);
+                return (
+                  <Link
+                    key={g}
+                    href={`/genre/${slug}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-0.5 text-[11px] font-medium text-ink-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/15 hover:text-white"
+                  >
+                    {known?.emoji ? <span>{known.emoji}</span> : null}
+                    {g}
+                  </Link>
+                );
+              })}
             </div>
           ) : null}
           {slide.synopsis ? (
@@ -141,7 +151,7 @@ export default function HeroCarousel({ slides, intervalMs = 5000 }: Props) {
           <div className="mt-5 flex flex-wrap gap-2">
             <Link
               href={`/anime/${encodeURIComponent(slide.series)}`}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(239,68,68,0.8)] transition hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-brand-500 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(129,140,248,0.7)] transition hover:brightness-110"
             >
               <Play className="h-4 w-4 fill-current" /> Tonton Sekarang
             </Link>
@@ -160,7 +170,7 @@ export default function HeroCarousel({ slides, intervalMs = 5000 }: Props) {
         <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
           <div
             key={`bar-${index}-${paused ? "p" : "r"}`}
-            className="h-full bg-gradient-to-r from-brand-500 to-fuchsia-500"
+            className="h-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-brand-500"
             style={{
               animation: paused
                 ? "none"
@@ -181,7 +191,7 @@ export default function HeroCarousel({ slides, intervalMs = 5000 }: Props) {
               aria-label={`Slide ${i + 1}`}
               className={`h-1.5 rounded-full transition-all ${
                 i === index
-                  ? "w-6 bg-gradient-to-r from-brand-500 to-fuchsia-500"
+                  ? "w-6 bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-brand-400"
                   : "w-1.5 bg-white/30 hover:bg-white/60"
               }`}
             />
