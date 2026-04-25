@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import { LogIn, Send, Trash2 } from "lucide-react";
 import type { Comment } from "@/app/api/comments/[series]/route";
+import LevelBadge, { LevelName } from "@/components/LevelBadge";
 
 type Props = { series: string };
 
@@ -169,12 +171,24 @@ export default function Comments({ series }: Props) {
               className="group rounded-2xl border border-white/10 bg-ink-900/50 p-3"
             >
               <div className="flex items-start gap-2.5">
-                <Avatar name={c.userName} image={c.userImage} />
+                <Link
+                  href={`/u/${encodeURIComponent(c.userId)}`}
+                  className="shrink-0"
+                >
+                  <Avatar name={c.userName} image={c.userImage} />
+                </Link>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="truncate text-[13px] font-semibold text-ink-100">
-                      {c.userName}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Link
+                      href={`/u/${encodeURIComponent(c.userId)}`}
+                      className="truncate text-[13px] font-semibold hover:underline"
+                    >
+                      <LevelName
+                        name={c.userName}
+                        level={c.userLevel ?? 1}
+                      />
+                    </Link>
+                    <LevelBadge level={c.userLevel ?? 1} size="xs" />
                     <span className="text-[11px] text-ink-500">
                       {timeAgo(c.createdAt)}
                     </span>

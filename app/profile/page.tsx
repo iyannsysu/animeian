@@ -12,6 +12,10 @@ import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
 import type { HistoryEntry } from "@/lib/history";
 import ProfileActions from "@/components/ProfileActions";
+import LevelBadge from "@/components/LevelBadge";
+import { getWatchSeconds, touchUser } from "@/lib/user";
+import { formatWatchTime, levelProgress, tierFor } from "@/lib/level";
+import { Trophy } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +45,17 @@ export default async function ProfilePage() {
 
   const totalWatch = history.reduce((s, e) => s + (e.progress || 0), 0);
   const uniqueSeries = new Set(history.map((e) => e.series)).size;
+
+  // Pastikan user record ada (biar bisa dikunjungi orang lain via /u/[id])
+  await touchUser({
+    id: user.id,
+    name: user.name,
+    image: user.image,
+    email: user.email,
+  });
+  const watchSeconds = await getWatchSeconds(user.id);
+  const prog = levelProgress(watchSeconds);
+  const tier = tierFor(prog.level);
 
   return (
     <div className="container-page space-y-10">
@@ -78,15 +93,43 @@ export default async function ProfilePage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
-              <Sparkles className="h-3 w-3" /> Profil Ian
+            <div className="inline-flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
+                <Sparkles className="h-3 w-3" /> Profil Ian
+              </span>
+              <LevelBadge level={prog.level} size="sm" />
             </div>
-            <h1 className="mt-2 truncate bg-gradient-to-r from-white via-indigo-100 to-fuchsia-200 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-4xl">
+            <h1
+              className={`mt-2 truncate text-2xl font-black tracking-tight sm:text-4xl ${tier.text}`}
+            >
               {user.name}
             </h1>
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-300 sm:text-sm">
               <Mail className="h-3.5 w-3.5 text-ink-400" /> {user.email}
             </p>
+            <div className="mt-3 max-w-md">
+              <div className="flex items-baseline justify-between text-[10px] text-ink-400">
+                <span>
+                  {tier.name} · {formatWatchTime(watchSeconds)} ditonton
+                </span>
+                <span>
+                  {Math.floor(prog.withinSec / 60)}/
+                  {Math.floor(prog.spanSec / 60)} menit → Lv {prog.level + 1}
+                </span>
+              </div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink-900/80 ring-1 ring-white/10">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-pink-400"
+                  style={{ width: `${prog.pct}%` }}
+                />
+              </div>
+              <Link
+                href={`/u/${encodeURIComponent(user.id)}`}
+                className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-indigo-300 hover:text-indigo-200"
+              >
+                <Trophy className="h-3 w-3" /> Lihat profil publik saya
+              </Link>
+            </div>
           </div>
 
           <div className="shrink-0">

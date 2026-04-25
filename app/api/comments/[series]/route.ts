@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
+import {
+  getWatchSeconds,
+  touchUser,
+} from "@/lib/user";
+import { computeLevel } from "@/lib/level";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +19,7 @@ export type Comment = {
   userImage: string | null;
   body: string;
   createdAt: number;
+  userLevel?: number;
 };
 
 const MAX_LEN = 1000;
@@ -33,7 +39,22 @@ export async function GET(
   const series = decodeURIComponent(params.series);
   if (!kv.available) return NextResponse.json({ items: [] });
   const items = await kv.lrange<Comment>(key(series), 0, 200);
-  return NextResponse.json({ items });
+
+  // Hitung level terkini per unique user id (dari watch_seconds saat baca,
+  // bukan dari nilai snapshot waktu komen) — biar warna nama selalu update.
+  const uniq = Array.from(new Set(items.map((c) => c.userId).filter(Boolean)));
+  const levels: Record<string, number> = {};
+  await Promise.all(
+    uniq.map(async (uid) => {
+      const sec = await getWatchSeconds(uid);
+      levels[uid] = computeLevel(sec);
+    })
+  );
+  const enriched = items.map((c) => ({
+    ...c,
+    userLevel: levels[c.userId] ?? c.userLevel ?? 1,
+  }));
+  return NextResponse.json({ items: enriched });
 }
 
 export async function POST(
@@ -52,6 +73,16 @@ export async function POST(
   if (text.length > MAX_LEN)
     return NextResponse.json({ ok: false, reason: "too_long" }, { status: 400 });
 
+  // Pastikan record user ada (untuk public profile + level)
+  await touchUser({
+    id: user.id,
+    name: user.name,
+    image: user.image,
+    email: user.email,
+  });
+  const sec = await getWatchSeconds(user.id);
+  const level = computeLevel(sec);
+
   const entry: Comment = {
     id: randomUUID(),
     series,
@@ -60,6 +91,7 @@ export async function POST(
     userImage: user.image,
     body: text,
     createdAt: Date.now(),
+    userLevel: level,
   };
   await kv.lpush(key(series), entry);
   await kv.ltrim(key(series), 0, MAX_PER_ANIME - 1);
