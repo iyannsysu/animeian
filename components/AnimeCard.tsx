@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Play, Star } from "lucide-react";
+import { Eye, Play, Star } from "lucide-react";
+import { formatViews } from "@/lib/views";
 
 type Props = {
   href: string;
@@ -10,6 +11,7 @@ type Props = {
   subtitle?: string | null;
   score?: string | null;
   priority?: boolean;
+  views?: number;
 };
 
 export default function AnimeCard({
@@ -20,6 +22,7 @@ export default function AnimeCard({
   subtitle,
   score,
   priority = false,
+  views,
 }: Props) {
   return (
     <Link
@@ -49,6 +52,12 @@ export default function AnimeCard({
           </span>
         ) : null}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/80 to-transparent" />
+        {typeof views === "number" && views > 0 ? (
+          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
+            <Eye className="h-3 w-3" />
+            {formatViews(views)}
+          </span>
+        ) : null}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition duration-300 group-hover:opacity-100">
           <span className="grid h-11 w-11 place-items-center rounded-full bg-brand-500/90 text-white shadow-lg backdrop-blur">
             <Play className="h-5 w-5 fill-current" />

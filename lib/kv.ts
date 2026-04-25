@@ -53,6 +53,23 @@ export const kv = {
     const r = await run<number>(["DEL", ...keys]);
     return r ?? 0;
   },
+  async incr(key: string): Promise<number> {
+    const r = await run<number>(["INCR", key]);
+    return r ?? 0;
+  },
+  async mget<T = unknown>(keys: string[]): Promise<(T | null)[]> {
+    if (!keys.length) return [];
+    const r = await run<(string | null)[]>(["MGET", ...keys]);
+    if (!r) return keys.map(() => null);
+    return r.map((v) => {
+      if (v == null) return null;
+      try {
+        return JSON.parse(v) as T;
+      } catch {
+        return v as unknown as T;
+      }
+    });
+  },
   async hset(key: string, field: string, value: unknown): Promise<boolean> {
     const v = typeof value === "string" ? value : JSON.stringify(value);
     const r = await run<number>(["HSET", key, field, v]);

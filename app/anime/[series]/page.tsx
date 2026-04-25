@@ -2,10 +2,11 @@ import { getDetail } from "@/lib/api";
 import EpisodeList from "@/components/EpisodeList";
 import Comments from "@/components/Comments";
 import { notFound } from "next/navigation";
-import { CalendarDays, Star, Tv, User } from "lucide-react";
+import { CalendarDays, Eye, Star, Tv, User } from "lucide-react";
 import Link from "next/link";
+import { incrementView, formatViews } from "@/lib/views";
 
-export const revalidate = 600;
+export const dynamic = "force-dynamic";
 
 type Props = { params: { series: string } };
 
@@ -34,6 +35,9 @@ export default async function DetailPage({ params }: Props) {
     d = null;
   }
   if (!d) return notFound();
+
+  // Increment view counter (fire-and-forget; tolerates KV unavailable)
+  const viewCount = await incrementView(series).catch(() => 0);
 
   const firstEp = d.chapter?.[d.chapter.length - 1];
 
@@ -73,6 +77,10 @@ export default async function DetailPage({ params }: Props) {
               </div>
               <div className="flex items-center gap-1.5">
                 <User className="h-4 w-4 text-ink-400" /> {d.author || "—"}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Eye className="h-4 w-4 text-ink-400" />{" "}
+                {formatViews(viewCount)} penonton
               </div>
               <div className="chip w-fit">{d.status}</div>
             </dl>

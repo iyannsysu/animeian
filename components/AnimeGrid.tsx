@@ -1,4 +1,5 @@
 import AnimeCard from "./AnimeCard";
+import { getViewCounts } from "@/lib/views";
 
 type Item = {
   id: string | number;
@@ -11,7 +12,7 @@ type Item = {
   score?: string;
 };
 
-export default function AnimeGrid({
+export default async function AnimeGrid({
   items,
   showBadge = true,
   priorityCount = 6,
@@ -27,6 +28,9 @@ export default function AnimeGrid({
       </div>
     );
   }
+
+  const counts = await getViewCounts(items.map((i) => i.url));
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
       {items.map((it, idx) => (
@@ -39,6 +43,7 @@ export default function AnimeGrid({
           subtitle={it.lastup || null}
           score={it.score || null}
           priority={idx < priorityCount}
+          views={counts[it.url] ?? 0}
         />
       ))}
     </div>
