@@ -145,4 +145,32 @@ export const kv = {
     const r = await run<string>(["LTRIM", key, start, stop]);
     return r === "OK";
   },
+  async zincrby(key: string, increment: number, member: string): Promise<number> {
+    const r = await run<string | number>(["ZINCRBY", key, increment, member]);
+    return Number(r ?? 0) || 0;
+  },
+  async zrevrangeWithScores(
+    key: string,
+    start = 0,
+    stop = 9
+  ): Promise<Array<{ member: string; score: number }>> {
+    const r = await run<string[]>([
+      "ZRANGE",
+      key,
+      start,
+      stop,
+      "REV",
+      "WITHSCORES",
+    ]);
+    if (!r || !Array.isArray(r)) return [];
+    const out: Array<{ member: string; score: number }> = [];
+    for (let i = 0; i < r.length; i += 2) {
+      out.push({ member: r[i], score: Number(r[i + 1]) || 0 });
+    }
+    return out;
+  },
+  async expire(key: string, seconds: number): Promise<boolean> {
+    const r = await run<number>(["EXPIRE", key, seconds]);
+    return (r ?? 0) === 1;
+  },
 };

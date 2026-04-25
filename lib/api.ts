@@ -44,6 +44,23 @@ export function getHome(page = 1) {
   return apiFetch<HomeResponse>(`/anime/home?page=${page}`, { revalidate: 300 });
 }
 
+export async function getHomePool(pages = 3): Promise<HomeResponse["data"]> {
+  const results = await Promise.allSettled(
+    Array.from({ length: pages }, (_, i) => getHome(i + 1))
+  );
+  const seen = new Set<string>();
+  const out: HomeResponse["data"] = [];
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const item of r.value.data ?? []) {
+      if (!item?.url || seen.has(item.url)) continue;
+      seen.add(item.url);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 export function getOngoing() {
   return apiFetch<OngoingResponse>(`/anime/ongoing`, { revalidate: 600 });
 }

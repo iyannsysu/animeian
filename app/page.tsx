@@ -1,23 +1,19 @@
-import { getDetail, getHome, getOngoing } from "@/lib/api";
+import { getDetail, getHome, getHomePool, getOngoing } from "@/lib/api";
 import AnimeGrid from "@/components/AnimeGrid";
 import SectionHeader from "@/components/SectionHeader";
 import ContinueWatching from "@/components/ContinueWatching";
 import HeroCarousel, { type HeroSlide } from "@/components/HeroCarousel";
 import PopularSidebar from "@/components/PopularSidebar";
-import { Eye, Flame, Send } from "lucide-react";
-import { formatViews, getViewCounts } from "@/lib/views";
-import type { AnimeCardItem } from "@/lib/types";
+import AnimeRow, { type RowItem } from "@/components/AnimeRow";
+import PopularTabs, { type PopularBucket } from "@/components/PopularTabs";
+import { Send } from "lucide-react";
+import { getTopRanked, getViewCounts } from "@/lib/views";
+import type { AnimeCardItem, OngoingItem } from "@/lib/types";
 
 export const revalidate = 300;
 
 async function buildHeroSlides(
-  ongoingTop: {
-    url: string;
-    judul: string;
-    cover: string;
-    lastch?: string;
-    type?: string;
-  }[]
+  ongoingTop: OngoingItem[]
 ): Promise<HeroSlide[]> {
   const details = await Promise.allSettled(
     ongoingTop.map((it) => getDetail(it.url))
@@ -57,28 +53,140 @@ async function buildHeroSlides(
   return slides;
 }
 
+type MetaLookup = Map<string, RowItem>;
+
+function ongoingToRow(it: OngoingItem, views?: number): RowItem {
+  return {
+    url: it.url,
+    judul: it.judul,
+    cover: it.cover,
+    type: it.type,
+    lastch: it.lastch,
+    views,
+  };
+}
+
+function cardToRow(it: AnimeCardItem, views?: number): RowItem {
+  return {
+    url: it.url,
+    judul: it.judul,
+    cover: it.cover,
+    type: it.type,
+    lastch: it.lastch || undefined,
+    score: it.score || undefined,
+    rilis: it.rilis || undefined,
+    status: it.status || undefined,
+    views,
+  };
+}
+
+function buildMetaLookup(
+  ongoing: OngoingItem[],
+  pool: AnimeCardItem[]
+): MetaLookup {
+  const m = new Map<string, RowItem>();
+  for (const o of ongoing) m.set(o.url, ongoingToRow(o));
+  // pool entries are richer (have score/rilis/status) — prefer them if present
+  for (const p of pool) m.set(p.url, cardToRow(p));
+  return m;
+}
+
+async function bucketFromTop(
+  win: "week" | "month" | "all",
+  label: string,
+  meta: MetaLookup,
+  counts: Record<string, number>
+): Promise<PopularBucket> {
+  const top = await getTopRanked(win, 12);
+  const items: RowItem[] = [];
+  for (const { series, score } of top) {
+    const row = meta.get(series);
+    if (!row) continue;
+    items.push({ ...row, views: counts[series] ?? score });
+  }
+  return { key: win, label, items };
+}
+
+function fallbackPopular(
+  ongoing: OngoingItem[],
+  pool: AnimeCardItem[],
+  counts: Record<string, number>,
+  limit = 12
+): RowItem[] {
+  const all: RowItem[] = [];
+  const seen = new Set<string>();
+  for (const it of ongoing) {
+    if (seen.has(it.url)) continue;
+    seen.add(it.url);
+    all.push(ongoingToRow(it, counts[it.url] ?? 0));
+  }
+  for (const it of pool) {
+    if (seen.has(it.url)) continue;
+    seen.add(it.url);
+    all.push(cardToRow(it, counts[it.url] ?? 0));
+  }
+  return all
+    .sort((a, b) => (b.views ?? 0) - (a.views ?? 0))
+    .slice(0, limit);
+}
+
 export default async function HomePage() {
-  const [latestRes, ongoingRes] = await Promise.allSettled([
+  const [latestRes, ongoingRes, poolRes] = await Promise.allSettled([
     getHome(1),
     getOngoing(),
+    getHomePool(3),
   ]);
 
   const latest: AnimeCardItem[] =
     latestRes.status === "fulfilled" ? latestRes.value.data : [];
   const ongoing =
     ongoingRes.status === "fulfilled" ? ongoingRes.value.data : [];
+  const pool: AnimeCardItem[] =
+    poolRes.status === "fulfilled" ? poolRes.value : [];
 
   const topOngoing = ongoing.slice(0, 5);
   const heroSlides = topOngoing.length
     ? await buildHeroSlides(topOngoing)
     : [];
 
-  const hotStrip = ongoing.slice(0, 12);
-  const hotCounts = await getViewCounts(hotStrip.map((o) => o.url));
+  const completedPool = pool
+    .filter((it) => (it.status ?? "").toLowerCase() === "completed")
+    .slice(0, 16);
+
+  // Collect view counts for all referenced series
+  const allUrls = Array.from(
+    new Set([
+      ...ongoing.map((o) => o.url),
+      ...pool.map((p) => p.url),
+      ...latest.map((l) => l.url),
+    ])
+  );
+  const countsMap = await getViewCounts(allUrls);
+
+  const meta = buildMetaLookup(ongoing, pool);
+
+  const [weekBucket, monthBucket, allBucket] = await Promise.all([
+    bucketFromTop("week", "Mingguan", meta, countsMap),
+    bucketFromTop("month", "Bulanan", meta, countsMap),
+    bucketFromTop("all", "Sepanjang Masa", meta, countsMap),
+  ]);
+
+  // Fallback: if KV ranking not yet populated, use ongoing + pool ordered by views
+  const fallback = fallbackPopular(ongoing, pool, countsMap);
+  if (!weekBucket.items.length) weekBucket.items = fallback.slice(0, 10);
+  if (!monthBucket.items.length) monthBucket.items = fallback.slice(0, 12);
+  if (!allBucket.items.length) allBucket.items = fallback.slice(0, 12);
+
+  const ongoingRow: RowItem[] = ongoing
+    .slice(0, 16)
+    .map((o) => ongoingToRow(o, countsMap[o.url] ?? 0));
+  const completedRow: RowItem[] = completedPool.map((p) =>
+    cardToRow(p, countsMap[p.url] ?? 0)
+  );
 
   return (
     <div className="container-page">
-      {/* Notification banner (sokuja-style) */}
+      {/* Notification banner */}
       <div className="mb-6 flex items-center justify-center gap-2 rounded-2xl border border-indigo-400/30 bg-gradient-to-r from-indigo-500/10 via-fuchsia-500/10 to-ink-900/40 px-4 py-2.5 text-xs font-medium text-indigo-100 sm:text-sm">
         <Send className="h-3.5 w-3.5 text-indigo-300" />
         Selamat datang di <span className="font-bold">Anime Ian</span> — login
@@ -86,85 +194,55 @@ export default async function HomePage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-        <div className="space-y-10 min-w-0">
+        <div className="min-w-0 space-y-10">
           {heroSlides.length ? <HeroCarousel slides={heroSlides} /> : null}
 
           <ContinueWatching />
 
-          {hotStrip.length ? (
+          {ongoingRow.length ? (
             <section>
               <SectionHeader
-                title="Trending Ongoing"
-                subtitle="Geser untuk lihat lebih banyak"
+                title="Ongoing Series"
+                subtitle="Anime yang sedang tayang, update tiap minggu"
+                href="/anime-list"
               />
-              <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 [scrollbar-width:thin]">
-                <div className="flex gap-3 snap-x snap-mandatory">
-                  {hotStrip.map((item) => {
-                    const v = hotCounts[item.url] ?? 0;
-                    return (
-                      <a
-                        key={item.url}
-                        href={`/anime/${encodeURIComponent(item.url)}`}
-                        className="group relative w-[140px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/10 bg-ink-900/60 sm:w-[160px]"
-                      >
-                        <div className="relative aspect-[2/3] w-full">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={item.cover}
-                            alt={item.judul}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
-                          />
-                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/85 to-transparent" />
-                          {item.type ? (
-                            <span className="absolute right-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                              {item.type}
-                            </span>
-                          ) : null}
-                          {item.lastch ? (
-                            <span className="absolute left-1.5 top-1.5 rounded-md bg-gradient-to-br from-indigo-500 to-fuchsia-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                              {item.lastch}
-                            </span>
-                          ) : null}
-                          {v > 0 ? (
-                            <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur">
-                              <Eye className="h-3 w-3" />
-                              {formatViews(v)}
-                            </span>
-                          ) : null}
-                          <div className="absolute inset-x-2 bottom-2">
-                            <p className="line-clamp-2 text-[12px] font-semibold text-white drop-shadow">
-                              {item.judul}
-                            </p>
-                          </div>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
+              <AnimeRow items={ongoingRow} />
+            </section>
+          ) : null}
+
+          {completedRow.length ? (
+            <section>
+              <SectionHeader
+                title="Anime Completed"
+                subtitle="Sudah tamat — bisa ditonton langsung habis"
+              />
+              <AnimeRow items={completedRow} badgeLabel="Completed" />
             </section>
           ) : null}
 
           <section>
             <SectionHeader
-              title="Ongoing"
-              subtitle="Anime yang sedang tayang"
-              href="/anime-list"
+              title="Anime Populer"
+              subtitle="Ranking berdasarkan jumlah penonton"
             />
-            <div className="mb-3 flex items-center gap-2 text-xs text-ink-400">
-              <Flame className="h-3.5 w-3.5 text-indigo-300" /> Update berkala
-            </div>
-            <AnimeGrid items={ongoing} priorityCount={4} />
+            <PopularTabs
+              buckets={[
+                { ...weekBucket, label: "Mingguan" },
+                { ...monthBucket, label: "Bulanan" },
+                { ...allBucket, label: "Sepanjang Masa" },
+              ]}
+            />
           </section>
 
-          <section>
-            <SectionHeader
-              title="Update Terbaru"
-              subtitle="Rilis paling baru dari katalog"
-            />
-            <AnimeGrid items={latest} />
-          </section>
+          {latest.length ? (
+            <section>
+              <SectionHeader
+                title="Update Terbaru"
+                subtitle="Rilis paling baru dari katalog"
+              />
+              <AnimeGrid items={latest} />
+            </section>
+          ) : null}
         </div>
 
         <div className="hidden lg:block">
