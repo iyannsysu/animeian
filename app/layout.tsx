@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import Providers from "@/components/Providers";
+import RegisterSW from "@/components/RegisterSW";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://animeian.vercel.app"),
@@ -14,6 +15,16 @@ export const metadata: Metadata = {
   description:
     "Nonton anime sub Indo streaming cepat dan lancar di HP — update terbaru, ongoing, dan jadwal rilis setiap hari.",
   applicationName: "Anime Ian",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Anime Ian",
+    statusBarStyle: "black-translucent",
+  },
   keywords: [
     "anime",
     "streaming anime",
@@ -52,6 +63,7 @@ export default function RootLayout({
           <main className="pb-28 pt-4 sm:pt-6">{children}</main>
           <Footer />
           <BottomNav />
+          <RegisterSW />
         </Providers>
       </body>
     </html>

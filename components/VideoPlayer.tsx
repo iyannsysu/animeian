@@ -9,8 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  PictureInPicture2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { StreamItem, StreamQuality } from "@/lib/types";
 
 type Props = {
@@ -50,11 +53,14 @@ export default function VideoPlayer({
   nextHref,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [quality, setQuality] = useState<StreamQuality | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [autoNext, setAutoNext] = useState(true);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const available = useMemo<StreamQuality[]>(() => {
     return QUALITY_ORDER.filter((q) => (stream.streams[q]?.length ?? 0) > 0);
@@ -136,6 +142,83 @@ export default function VideoPlayer({
     }
   };
 
+  // Auto-play next episode dengan countdown 5 detik saat video selesai
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onEnded = () => {
+      if (!autoNext || !nextHref) return;
+      setCountdown(5);
+    };
+    v.addEventListener("ended", onEnded);
+    return () => v.removeEventListener("ended", onEnded);
+  }, [autoNext, nextHref]);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      if (nextHref) router.push(nextHref);
+      setCountdown(null);
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => (c === null ? null : c - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, nextHref, router]);
+
+  // Media Session API: judul + cover di lock screen, tombol prev/next/play/pause
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("mediaSession" in navigator)) return;
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist: "Anime Ian",
+        album: title,
+        artwork: poster
+          ? [
+              { src: poster, sizes: "512x512", type: "image/jpeg" },
+              { src: poster, sizes: "256x256", type: "image/jpeg" },
+            ]
+          : [],
+      });
+      navigator.mediaSession.setActionHandler("play", () =>
+        videoRef.current?.play().catch(() => {})
+      );
+      navigator.mediaSession.setActionHandler("pause", () =>
+        videoRef.current?.pause()
+      );
+      navigator.mediaSession.setActionHandler("previoustrack", () => {
+        if (prevHref) router.push(prevHref);
+      });
+      navigator.mediaSession.setActionHandler("nexttrack", () => {
+        if (nextHref) router.push(nextHref);
+      });
+    } catch {
+      /* noop */
+    }
+  }, [title, poster, prevHref, nextHref, router]);
+
+  async function togglePip() {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      const doc = document as Document & {
+        pictureInPictureElement?: Element | null;
+        exitPictureInPicture?: () => Promise<void>;
+      };
+      if (doc.pictureInPictureElement) {
+        await doc.exitPictureInPicture?.();
+      } else if (
+        "requestPictureInPicture" in v &&
+        typeof (v as HTMLVideoElement).requestPictureInPicture === "function"
+      ) {
+        await v.requestPictureInPicture();
+      }
+    } catch {
+      /* noop */
+    }
+  }
+
   if (!available.length) {
     return (
       <div className="grid aspect-video w-full place-items-center rounded-xl border border-ink-800 bg-ink-900 text-center">
@@ -184,6 +267,32 @@ export default function VideoPlayer({
             {error}
           </div>
         ) : null}
+
+        {countdown !== null && nextHref ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center">
+            <p className="text-xs uppercase tracking-[0.3em] text-ink-400">
+              Lanjut otomatis dalam
+            </p>
+            <div className="text-6xl font-black tabular-nums text-white">
+              {countdown}
+            </div>
+            <div className="flex gap-2">
+              <Link
+                href={nextHref}
+                className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-4 py-2 text-sm font-bold text-white"
+              >
+                Lanjut sekarang <ChevronRight className="h-4 w-4" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCountdown(null)}
+                className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/50 px-4 py-2 text-sm font-bold text-ink-100"
+              >
+                <X className="h-4 w-4" /> Batal
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -224,6 +333,28 @@ export default function VideoPlayer({
             </div>
           ) : null}
         </div>
+
+        <button
+          type="button"
+          onClick={togglePip}
+          className="btn-ghost text-xs"
+          aria-label="Picture in Picture"
+        >
+          <PictureInPicture2 className="h-4 w-4" />
+          PiP
+        </button>
+
+        {nextHref ? (
+          <label className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-900/60 px-3 py-1.5 text-xs text-ink-200">
+            <input
+              type="checkbox"
+              checked={autoNext}
+              onChange={(e) => setAutoNext(e.target.checked)}
+              className="h-3 w-3 accent-fuchsia-500"
+            />
+            Auto-next
+          </label>
+        ) : null}
 
         <div className="ml-auto flex items-center gap-2">
           {prevHref ? (

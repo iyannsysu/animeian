@@ -1,0 +1,44 @@
+{
+  "name": "Anime Ian — Streaming Anime Sub Indo",
+  "short_name": "Anime Ian",
+  "description": "Nonton anime sub Indo lancar di HP, gratis, tanpa iklan.",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b12",
+  "theme_color": "#0b0b12",
+  "categories": ["entertainment", "video"],
+  "lang": "id",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ongoing",
+      "url": "/ongoing",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Jadwal",
+      "url": "/jadwal",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Watchlist",
+      "url": "/watchlist",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -6,6 +6,8 @@ import { CalendarDays, Eye, Star, Tv, User } from "lucide-react";
 import Link from "next/link";
 import { incrementView, formatViews } from "@/lib/views";
 import { slugify } from "@/lib/genres";
+import WatchlistButton from "@/components/WatchlistButton";
+import ShareButton from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +114,16 @@ export default async function DetailPage({ params }: Props) {
                     Episode terbaru ({d.chapter[0].ch})
                   </Link>
                 ) : null}
+                <WatchlistButton
+                  item={{
+                    series: d.series_id,
+                    title: d.judul,
+                    cover: d.cover,
+                    type: d.type,
+                    addedAt: Date.now(),
+                  }}
+                />
+                <ShareButton title={d.judul} text={d.sinopsis?.slice(0, 120)} />
               </div>
             ) : null}
           </div>

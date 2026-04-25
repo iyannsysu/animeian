@@ -182,4 +182,17 @@ export const kv = {
     const r = await run<string[]>(["SMEMBERS", key]);
     return r ?? [];
   },
+  async srem(key: string, ...members: string[]): Promise<number> {
+    if (!members.length) return 0;
+    const r = await run<number>(["SREM", key, ...members]);
+    return r ?? 0;
+  },
+  async sismember(key: string, member: string): Promise<boolean> {
+    const r = await run<number>(["SISMEMBER", key, member]);
+    return (r ?? 0) === 1;
+  },
+  async scard(key: string): Promise<number> {
+    const r = await run<number>(["SCARD", key]);
+    return r ?? 0;
+  },
 };

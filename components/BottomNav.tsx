@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LibraryBig, Search, Sparkles, CalendarDays } from "lucide-react";
+import { Home, Bookmark, Search, Sparkles, Trophy } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Home", icon: Home },
   { href: "/genre", label: "Genre", icon: Sparkles },
-  { href: "/anime-list", label: "A-Z", icon: LibraryBig },
-  { href: "/jadwal", label: "Jadwal", icon: CalendarDays },
+  { href: "/watchlist", label: "Saya", icon: Bookmark },
+  { href: "/leaderboard", label: "Rank", icon: Trophy },
   { href: "/search", label: "Cari", icon: Search },
 ];
 
