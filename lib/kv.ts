@@ -173,4 +173,13 @@ export const kv = {
     const r = await run<number>(["EXPIRE", key, seconds]);
     return (r ?? 0) === 1;
   },
+  async sadd(key: string, ...members: string[]): Promise<number> {
+    if (!members.length) return 0;
+    const r = await run<number>(["SADD", key, ...members]);
+    return r ?? 0;
+  },
+  async smembers(key: string): Promise<string[]> {
+    const r = await run<string[]>(["SMEMBERS", key]);
+    return r ?? [];
+  },
 };

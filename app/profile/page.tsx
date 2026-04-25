@@ -15,7 +15,8 @@ import ProfileActions from "@/components/ProfileActions";
 import LevelBadge from "@/components/LevelBadge";
 import { getWatchSeconds, touchUser } from "@/lib/user";
 import { formatWatchTime, levelProgress, tierFor } from "@/lib/level";
-import { Trophy } from "lucide-react";
+import { ShieldCheck, Trophy } from "lucide-react";
+import { isAdminEmail } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -123,12 +124,22 @@ export default async function ProfilePage() {
                   style={{ width: `${prog.pct}%` }}
                 />
               </div>
-              <Link
-                href={`/u/${encodeURIComponent(user.id)}`}
-                className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-indigo-300 hover:text-indigo-200"
-              >
-                <Trophy className="h-3 w-3" /> Lihat profil publik saya
-              </Link>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/u/${encodeURIComponent(user.id)}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-indigo-300 hover:text-indigo-200"
+                >
+                  <Trophy className="h-3 w-3" /> Lihat profil publik saya
+                </Link>
+                {isAdminEmail(user.email) ? (
+                  <Link
+                    href="/admin/level"
+                    className="inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-fuchsia-200 hover:border-fuchsia-400/70 hover:bg-fuchsia-500/25"
+                  >
+                    <ShieldCheck className="h-3 w-3" /> Admin Panel
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </div>
 

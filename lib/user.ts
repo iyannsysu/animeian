@@ -39,7 +39,27 @@ export async function touchUser(input: {
     updatedAt: now,
   };
   await kv.set(userKey(input.id), next);
+  // Daftar registry user untuk admin panel
+  await kv.sadd("users:all", input.id);
   return next;
+}
+
+export async function setWatchSeconds(
+  id: string,
+  seconds: number
+): Promise<number> {
+  if (!kv.available) return 0;
+  const v = Math.max(0, Math.floor(seconds));
+  await kv.set(watchKey(id), String(v));
+  return v;
+}
+
+export async function listAllUsers(): Promise<StoredUser[]> {
+  if (!kv.available) return [];
+  const ids = await kv.smembers("users:all");
+  if (!ids.length) return [];
+  const users = await Promise.all(ids.map((id) => getStoredUser(id)));
+  return users.filter((u): u is StoredUser => !!u);
 }
 
 export async function getStoredUser(id: string): Promise<StoredUser | null> {
