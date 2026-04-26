@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
-import { getWatchSeconds, touchUser } from "@/lib/user";
+import {
+  getStoredUser,
+  getWatchSeconds,
+  resolveDisplayUser,
+  touchUser,
+} from "@/lib/user";
 import { computeLevel } from "@/lib/level";
 import { isAdminEmailAsync, getAdminUserIds } from "@/lib/admin";
 
@@ -23,7 +28,22 @@ export type Comment = {
   likedByMe?: boolean;
   pinned?: boolean;
   isAuthorAdmin?: boolean;
+  /** Optional gambar yang dilampirkan komentar (data URL JPEG/PNG/WEBP). */
+  imageData?: string;
 };
+
+const IMAGE_MAX_BYTES = 260_000;
+
+function validImage(s: string): boolean {
+  if (!s.startsWith("data:image/")) return false;
+  if (s.length > IMAGE_MAX_BYTES) return false;
+  const head = s.slice(0, 30);
+  return (
+    head.startsWith("data:image/jpeg") ||
+    head.startsWith("data:image/png") ||
+    head.startsWith("data:image/webp")
+  );
+}
 
 const MAX_LEN = 1000;
 const MAX_PER_ANIME = 1000;
@@ -49,13 +69,21 @@ export async function GET(
   if (!kv.available) return NextResponse.json({ items: [] });
   const items = await kv.lrange<Comment>(key(series), 0, 500);
 
-  // Hitung level terkini per user
+  // Fetch level + display name/image terkini per user (override > Google default)
   const uniq = Array.from(new Set(items.map((c) => c.userId).filter(Boolean)));
   const levels: Record<string, number> = {};
+  const displayMap: Record<
+    string,
+    { name: string; image: string | null }
+  > = {};
   await Promise.all(
     uniq.map(async (uid) => {
-      const sec = await getWatchSeconds(uid);
+      const [sec, stored] = await Promise.all([
+        getWatchSeconds(uid),
+        getStoredUser(uid),
+      ]);
       levels[uid] = computeLevel(sec);
+      if (stored) displayMap[uid] = resolveDisplayUser(stored);
     })
   );
 
@@ -77,15 +105,20 @@ export async function GET(
       )
     : items.map(() => false);
 
-  const enriched: Comment[] = items.map((c, i) => ({
-    ...c,
-    userLevel: levels[c.userId] ?? c.userLevel ?? 1,
-    likeCount: likeCounts[i] ?? 0,
-    likedByMe: likedFlags[i] ?? false,
-    pinned: pinned.has(c.id),
-    parentId: c.parentId ?? null,
-    isAuthorAdmin: adminIds.has(c.userId),
-  }));
+  const enriched: Comment[] = items.map((c, i) => {
+    const display = displayMap[c.userId];
+    return {
+      ...c,
+      userName: display?.name ?? c.userName,
+      userImage: display?.image ?? c.userImage,
+      userLevel: levels[c.userId] ?? c.userLevel ?? 1,
+      likeCount: likeCounts[i] ?? 0,
+      likedByMe: likedFlags[i] ?? false,
+      pinned: pinned.has(c.id),
+      parentId: c.parentId ?? null,
+      isAuthorAdmin: adminIds.has(c.userId),
+    };
+  });
 
   const isAdmin = await isAdminEmailAsync(me?.email);
   return NextResponse.json({ items: enriched, isAdmin });
@@ -105,11 +138,24 @@ export async function POST(
   const body = (await req.json().catch(() => null)) as {
     body?: string;
     parentId?: string | null;
+    imageData?: string;
   } | null;
   const text = (body?.body ?? "").trim();
-  if (!text) return NextResponse.json({ ok: false, reason: "empty" }, { status: 400 });
+  const imageRaw = (body?.imageData ?? "").trim();
+  // Boleh kirim teks kosong selama ada gambar
+  if (!text && !imageRaw)
+    return NextResponse.json({ ok: false, reason: "empty" }, { status: 400 });
   if (text.length > MAX_LEN)
     return NextResponse.json({ ok: false, reason: "too_long" }, { status: 400 });
+  let imageData: string | undefined;
+  if (imageRaw) {
+    if (!validImage(imageRaw))
+      return NextResponse.json(
+        { ok: false, reason: "invalid_image" },
+        { status: 400 }
+      );
+    imageData = imageRaw;
+  }
 
   await touchUser({
     id: user.id,
@@ -117,19 +163,26 @@ export async function POST(
     image: user.image,
     email: user.email,
   });
-  const sec = await getWatchSeconds(user.id);
+  const [sec, stored] = await Promise.all([
+    getWatchSeconds(user.id),
+    getStoredUser(user.id),
+  ]);
   const level = computeLevel(sec);
+  const display = stored
+    ? resolveDisplayUser(stored)
+    : { name: user.name, image: user.image };
 
   const entry: Comment = {
     id: randomUUID(),
     series,
     userId: user.id,
-    userName: user.name,
-    userImage: user.image,
+    userName: display.name,
+    userImage: display.image,
     body: text,
     createdAt: Date.now(),
     userLevel: level,
     parentId: body?.parentId ? String(body.parentId) : null,
+    imageData,
   };
   await kv.lpush(key(series), entry);
   await kv.ltrim(key(series), 0, MAX_PER_ANIME - 1);

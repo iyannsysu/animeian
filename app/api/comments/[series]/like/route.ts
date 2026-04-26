@@ -1,12 +1,37 @@
 import { NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
+import { incLikesReceived } from "@/lib/user";
+import type { Comment } from "@/app/api/comments/[series]/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function likeKey(series: string, id: string) {
   return `comment_likes:${series}:${id}`;
+}
+function commentsKey(series: string) {
+  return `comments:${series}`;
+}
+
+/**
+ * Cari userId author dari komentar id `commentId` di series tertentu.
+ * Dipakai untuk increment counter likesReceived pada user yang dikomentari.
+ */
+async function findCommentAuthor(
+  series: string,
+  commentId: string
+): Promise<string | null> {
+  const raws = await kv.lrangeRaw(commentsKey(series), 0, 1000);
+  for (const raw of raws) {
+    try {
+      const c = JSON.parse(raw) as Comment;
+      if (c.id === commentId) return c.userId ?? null;
+    } catch {
+      /* noop */
+    }
+  }
+  return null;
 }
 
 export async function POST(
@@ -32,5 +57,12 @@ export async function POST(
     await kv.sadd(k, user.id);
   }
   const count = await kv.scard(k);
+
+  // Update likesReceived counter di author
+  const authorId = await findCommentAuthor(series, id);
+  if (authorId && authorId !== user.id) {
+    await incLikesReceived(authorId, isLiked ? -1 : 1);
+  }
+
   return NextResponse.json({ ok: true, liked: !isLiked, count });
 }

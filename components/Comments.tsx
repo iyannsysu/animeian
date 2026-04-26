@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import {
   CornerDownRight,
   Heart,
+  ImageIcon,
   LogIn,
+  Loader2,
   Pin,
   Reply,
   Send,
   Trash2,
+  X as XIcon,
 } from "lucide-react";
 import type { Comment } from "@/app/api/comments/[series]/route";
 import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
+import { compressImageToDataUrl } from "@/lib/clientImage";
 
 type Props = { series: string };
 
@@ -28,6 +39,10 @@ export default function Comments({ series }: Props) {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyValue, setReplyValue] = useState("");
   const [replySending, setReplySending] = useState(false);
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [zoomImg, setZoomImg] = useState<string | null>(null);
 
   const url = `/api/comments/${encodeURIComponent(series)}`;
 
@@ -75,11 +90,15 @@ export default function Comments({ series }: Props) {
     return { roots, repliesByParent };
   }, [items]);
 
-  async function send(text: string, parentId: string | null) {
+  async function send(
+    text: string,
+    parentId: string | null,
+    img?: string | null
+  ) {
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: text, parentId }),
+      body: JSON.stringify({ body: text, parentId, imageData: img ?? undefined }),
     });
     const data = (await res.json()) as {
       ok: boolean;
@@ -95,13 +114,15 @@ export default function Comments({ series }: Props) {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const text = value.trim();
-    if (!text) return;
+    if (!text && !imageData) return;
     setSending(true);
     setError(null);
     try {
-      const c = await send(text, null);
+      const c = await send(text, null, imageData);
       setItems((prev) => [c, ...prev]);
       setValue("");
+      setImageData(null);
+      if (fileRef.current) fileRef.current.value = "";
     } catch (err) {
       const msg = err instanceof Error ? err.message : "send_failed";
       setError(
@@ -111,6 +132,8 @@ export default function Comments({ series }: Props) {
           ? "Silakan login dulu."
           : msg === "too_long"
           ? "Komentar terlalu panjang (maks 1000 karakter)."
+          : msg === "invalid_image"
+          ? "Gambar tidak valid atau terlalu besar."
           : "Gagal mengirim komentar."
       );
     } finally {
@@ -123,7 +146,7 @@ export default function Comments({ series }: Props) {
     if (!text) return;
     setReplySending(true);
     try {
-      const c = await send(text, parentId);
+      const c = await send(text, parentId, null);
       setItems((prev) => [c, ...prev]);
       setReplyValue("");
       setReplyTo(null);
@@ -188,6 +211,27 @@ export default function Comments({ series }: Props) {
     }
   }
 
+  async function pickImage(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageBusy(true);
+    setError(null);
+    try {
+      const data = await compressImageToDataUrl(file, {
+        maxWidth: 720,
+        maxHeight: 720,
+        quality: 0.72,
+        maxBytes: 240_000,
+      });
+      setImageData(data);
+    } catch {
+      setError("Gagal memproses gambar. Coba gambar lain.");
+    } finally {
+      setImageBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   async function togglePin(id: string) {
     const res = await fetch(`${url}/pin`, {
       method: "POST",
@@ -236,13 +280,55 @@ export default function Comments({ series }: Props) {
                 }…`}
                 className="w-full resize-none rounded-xl border border-ink-800 bg-ink-950/60 p-2.5 text-sm text-ink-100 outline-none focus:border-brand-500/70"
               />
-              <div className="mt-1.5 flex items-center justify-between">
-                <span className="text-[11px] text-ink-500">
-                  {value.length}/1000
-                </span>
+              {imageData ? (
+                <div className="mt-2 inline-block max-w-[220px]">
+                  <div className="relative overflow-hidden rounded-xl border border-white/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageData}
+                      alt="preview"
+                      className="max-h-48 w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImageData(null)}
+                      className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
+                      aria-label="Hapus gambar"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={pickImage}
+              />
+              <div className="mt-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={imageBusy}
+                    className="inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-950/60 px-2.5 py-1 text-[11px] font-semibold text-ink-200 hover:border-indigo-400/60 hover:text-indigo-200 disabled:opacity-50"
+                  >
+                    {imageBusy ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ImageIcon className="h-3 w-3" />
+                    )}
+                    {imageData ? "Ganti gambar" : "Tambah gambar"}
+                  </button>
+                  <span className="text-[11px] text-ink-500">
+                    {value.length}/1000
+                  </span>
+                </div>
                 <button
                   type="submit"
-                  disabled={sending || !value.trim()}
+                  disabled={sending || (!value.trim() && !imageData)}
                   className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
                 >
                   <Send className="h-3.5 w-3.5" />
@@ -304,6 +390,7 @@ export default function Comments({ series }: Props) {
                   setReplyTo((cur) => (cur === c.id ? null : c.id));
                   setReplyValue("");
                 }}
+                onZoomImage={(src) => setZoomImg(src)}
               />
               {/* Reply form */}
               {replyTo === c.id && status === "authenticated" ? (
@@ -344,6 +431,7 @@ export default function Comments({ series }: Props) {
                         compact
                         onLike={() => toggleLike(rc.id)}
                         onDelete={() => remove(rc.id)}
+                        onZoomImage={(src) => setZoomImg(src)}
                       />
                     </li>
                   ))}
@@ -353,6 +441,29 @@ export default function Comments({ series }: Props) {
           ))}
         </ul>
       )}
+
+      {zoomImg ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoomImg(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zoomImg}
+            alt="lampiran komentar"
+            className="max-h-[90vh] max-w-[95vw] rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setZoomImg(null)}
+            className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
+            aria-label="Tutup"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -366,6 +477,7 @@ function CommentRow({
   onPin,
   onDelete,
   onReply,
+  onZoomImage,
 }: {
   c: Comment;
   userId: string | null;
@@ -375,6 +487,7 @@ function CommentRow({
   onPin?: () => void;
   onDelete: () => void;
   onReply?: () => void;
+  onZoomImage?: (src: string) => void;
 }) {
   const canDelete = isAdmin || (userId && c.userId === userId);
   return (
@@ -405,13 +518,32 @@ function CommentRow({
             {timeAgo(c.createdAt)}
           </span>
         </div>
-        <p
-          className={`mt-1 whitespace-pre-wrap break-words text-ink-200 ${
-            compact ? "text-[13px]" : "text-sm"
-          }`}
-        >
-          {c.body}
-        </p>
+        {c.body ? (
+          <p
+            className={`mt-1 whitespace-pre-wrap break-words text-ink-200 ${
+              compact ? "text-[13px]" : "text-sm"
+            }`}
+          >
+            {c.body}
+          </p>
+        ) : null}
+        {c.imageData ? (
+          <button
+            type="button"
+            onClick={() => onZoomImage?.(c.imageData!)}
+            className="mt-2 block overflow-hidden rounded-xl border border-white/10 transition hover:border-indigo-400/50"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={c.imageData}
+              alt="lampiran komentar"
+              loading="lazy"
+              className={`block ${
+                compact ? "max-h-44" : "max-h-64"
+              } w-auto max-w-full object-contain`}
+            />
+          </button>
+        ) : null}
         <div className="mt-1.5 flex items-center gap-3 text-[11px] text-ink-400">
           <button
             type="button"

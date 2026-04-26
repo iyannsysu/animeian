@@ -3,6 +3,7 @@ import { Crown, Sparkles, Trophy } from "lucide-react";
 import {
   getWatchSeconds,
   listAllUsers,
+  resolveDisplayUser,
 } from "@/lib/user";
 import { computeLevel, formatWatchTime, tierFor } from "@/lib/level";
 import { getAdminUserIds } from "@/lib/admin";
@@ -23,8 +24,11 @@ export default async function LeaderboardPage() {
   const ranked = await Promise.all(
     users.map(async (u) => {
       const sec = await getWatchSeconds(u.id);
+      const display = resolveDisplayUser(u);
       return {
         ...u,
+        name: display.name,
+        image: display.image,
         watchSeconds: sec,
         level: computeLevel(sec),
         isAdmin: adminIds.has(u.id),

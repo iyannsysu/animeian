@@ -2,18 +2,31 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
   Clock,
+  Heart,
   MessageSquare,
   Sparkles,
   Eye,
   PlayCircle,
   Mail,
+  UserPlus,
+  Users,
+  Activity,
 } from "lucide-react";
 import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
 import type { HistoryEntry } from "@/lib/history";
 import ProfileActions from "@/components/ProfileActions";
 import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
-import { getWatchSeconds, touchUser } from "@/lib/user";
+import ProfileEditor from "@/components/ProfileEditor";
+import ActiveStatus from "@/components/ActiveStatus";
+import {
+  getFollowStats,
+  getHistoryStats,
+  getStoredUser,
+  getWatchSeconds,
+  resolveDisplayUser,
+  touchUser,
+} from "@/lib/user";
 import { formatWatchTime, levelProgress, tierFor } from "@/lib/level";
 import { ShieldCheck, Trophy } from "lucide-react";
 import { isAdminEmailAsync } from "@/lib/admin";
@@ -54,10 +67,19 @@ export default async function ProfilePage() {
     image: user.image,
     email: user.email,
   });
-  const watchSeconds = await getWatchSeconds(user.id);
+  const [watchSeconds, stored, follow, histStats] = await Promise.all([
+    getWatchSeconds(user.id),
+    getStoredUser(user.id),
+    getFollowStats(user.id, user.id),
+    getHistoryStats(user.id),
+  ]);
+  const display = stored
+    ? resolveDisplayUser(stored)
+    : { name: user.name, image: user.image };
   const prog = levelProgress(watchSeconds);
   const tier = tierFor(prog.level);
   const isAdmin = await isAdminEmailAsync(user.email);
+  const likesReceived = stored?.likesReceived ?? 0;
 
   return (
     <div className="container-page space-y-10">
@@ -80,16 +102,16 @@ export default async function ProfilePage() {
           <div className="relative">
             <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-brand-500 opacity-70 blur-md" />
             <div className="relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border-2 border-white/20 bg-ink-800 text-3xl font-black text-white sm:h-28 sm:w-28">
-              {user.image ? (
+              {display.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={user.image}
-                  alt={user.name}
+                  src={display.image}
+                  alt={display.name}
                   referrerPolicy="no-referrer"
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span>{user.name.slice(0, 1).toUpperCase()}</span>
+                <span>{display.name.slice(0, 1).toUpperCase()}</span>
               )}
             </div>
           </div>
@@ -102,12 +124,15 @@ export default async function ProfilePage() {
               <LevelBadge level={prog.level} size="sm" />
             </div>
             <h1 className="mt-2 flex flex-wrap items-center gap-2 truncate text-2xl font-black tracking-tight sm:text-4xl">
-              <LevelName name={user.name} level={prog.level} isAdmin={isAdmin} />
+              <LevelName name={display.name} level={prog.level} isAdmin={isAdmin} />
               {isAdmin ? <AdminBadge size="sm" /> : null}
             </h1>
-            <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-300 sm:text-sm">
-              <Mail className="h-3.5 w-3.5 text-ink-400" /> {user.email}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="inline-flex items-center gap-1.5 text-xs text-ink-300 sm:text-sm">
+                <Mail className="h-3.5 w-3.5 text-ink-400" /> {user.email}
+              </p>
+              <ActiveStatus lastActiveAt={stored?.lastActiveAt ?? Date.now()} />
+            </div>
             <div className="mt-3 max-w-md">
               <div className="flex items-baseline justify-between text-[10px] text-ink-400">
                 <span>
@@ -149,18 +174,36 @@ export default async function ProfilePage() {
         </div>
 
         {/* Stat cards */}
-        <div className="relative mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="relative mt-6 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
           <StatCard
-            icon={<Clock className="h-4 w-4" />}
-            label="History"
-            value={history.length}
+            icon={<Users className="h-4 w-4" />}
+            label="Followers"
+            value={follow.followers}
             accent="indigo"
           />
           <StatCard
-            icon={<PlayCircle className="h-4 w-4" />}
-            label="Seri"
-            value={uniqueSeries}
+            icon={<UserPlus className="h-4 w-4" />}
+            label="Following"
+            value={follow.following}
             accent="fuchsia"
+          />
+          <StatCard
+            icon={<Heart className="h-4 w-4" />}
+            label="Total Like"
+            value={likesReceived}
+            accent="rose"
+          />
+          <StatCard
+            icon={<PlayCircle className="h-4 w-4" />}
+            label="Episode"
+            value={histStats.totalEpisodes}
+            accent="emerald"
+          />
+          <StatCard
+            icon={<Eye className="h-4 w-4" />}
+            label="Seri"
+            value={histStats.totalSeries}
+            accent="amber"
           />
           <StatCard
             icon={<MessageSquare className="h-4 w-4" />}
@@ -179,6 +222,16 @@ export default async function ProfilePage() {
           </p>
         ) : null}
       </header>
+
+      {/* Edit nama + foto profil */}
+      <ProfileEditor
+        initialName={display.name}
+        initialImage={display.image}
+        googleName={user.name}
+        googleImage={user.image}
+        hasNameOverride={!!stored?.nameOverride}
+        hasImageOverride={!!stored?.imageOverride}
+      />
 
       {/* History */}
       <section>
@@ -316,7 +369,7 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: number;
-  accent: "indigo" | "fuchsia" | "brand";
+  accent: "indigo" | "fuchsia" | "brand" | "rose" | "emerald" | "amber";
 }) {
   const palette: Record<string, { border: string; glow: string; text: string }> = {
     indigo: {
@@ -333,6 +386,21 @@ function StatCard({
       border: "border-brand-400/30",
       glow: "from-brand-500/20",
       text: "text-brand-300",
+    },
+    rose: {
+      border: "border-rose-400/30",
+      glow: "from-rose-500/20",
+      text: "text-rose-300",
+    },
+    emerald: {
+      border: "border-emerald-400/30",
+      glow: "from-emerald-500/20",
+      text: "text-emerald-300",
+    },
+    amber: {
+      border: "border-amber-400/30",
+      glow: "from-amber-500/20",
+      text: "text-amber-300",
     },
   };
   const p = palette[accent];

@@ -6,8 +6,21 @@ import {
 } from "@/lib/user";
 import { tierFor, formatWatchTime } from "@/lib/level";
 import { getAdminUserIds } from "@/lib/admin";
+import { getSessionUser } from "@/lib/session";
 import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
-import { CalendarDays, Clock, MessageSquare, Sparkles, Trophy } from "lucide-react";
+import ActiveStatus from "@/components/ActiveStatus";
+import FollowButton from "@/components/FollowButton";
+import {
+  CalendarDays,
+  Clock,
+  Heart,
+  MessageSquare,
+  PlayCircle,
+  Sparkles,
+  Trophy,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +37,8 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function PublicProfilePage({ params }: Props) {
   const id = decodeURIComponent(params.id);
-  const profile = await getPublicProfile(id);
+  const me = await getSessionUser();
+  const profile = await getPublicProfile(id, me?.id);
   if (!profile) notFound();
   const tier = tierFor(profile.level);
   const [comments, adminIds] = await Promise.all([
@@ -32,6 +46,7 @@ export default async function PublicProfilePage({ params }: Props) {
     getAdminUserIds(),
   ]);
   const isAdmin = adminIds.has(id);
+  const isMe = me?.id === id;
 
   return (
     <div className="container-page space-y-6">
@@ -70,13 +85,27 @@ export default async function PublicProfilePage({ params }: Props) {
               {isAdmin ? <AdminBadge size="sm" /> : null}
               <LevelBadge level={profile.level} size="md" />
             </div>
-            <p className="mt-2 text-sm text-ink-300">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink-300">
               {isAdmin ? (
                 <span className="font-bold text-red-300">Admin · </span>
               ) : null}
-              {tier.name} · Lv {profile.level.toLocaleString("id-ID")} ·{" "}
-              {formatWatchTime(profile.watchSeconds)} ditonton
-            </p>
+              <span>
+                {tier.name} · Lv {profile.level.toLocaleString("id-ID")} ·{" "}
+                {formatWatchTime(profile.watchSeconds)} ditonton
+              </span>
+              {profile.lastActiveAt ? (
+                <ActiveStatus lastActiveAt={profile.lastActiveAt} />
+              ) : null}
+            </div>
+            {!isMe ? (
+              <div className="mt-3">
+                <FollowButton
+                  targetId={profile.id}
+                  initialFollowing={profile.isFollowing}
+                  initialFollowers={profile.followers}
+                />
+              </div>
+            ) : null}
 
             <div className="mt-4 max-w-md">
               <div className="flex items-baseline justify-between text-[11px] text-ink-400">
@@ -97,24 +126,42 @@ export default async function PublicProfilePage({ params }: Props) {
         </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
-          icon={<Trophy className="h-4 w-4" />}
-          label="Level"
-          value={`Lv ${profile.level.toLocaleString("id-ID")}`}
+          icon={<Users className="h-4 w-4" />}
+          label="Followers"
+          value={`${profile.followers}`}
           accent="from-indigo-500/20 via-indigo-500/5 border-indigo-400/30"
         />
         <StatCard
-          icon={<Clock className="h-4 w-4" />}
+          icon={<UserPlus className="h-4 w-4" />}
+          label="Following"
+          value={`${profile.following}`}
+          accent="from-fuchsia-500/20 via-fuchsia-500/5 border-fuchsia-400/30"
+        />
+        <StatCard
+          icon={<Heart className="h-4 w-4" />}
+          label="Total Like"
+          value={`${profile.likesReceived}`}
+          accent="from-rose-500/20 via-rose-500/5 border-rose-400/30"
+        />
+        <StatCard
+          icon={<PlayCircle className="h-4 w-4" />}
+          label="Episode"
+          value={`${profile.totalEpisodes}`}
+          accent="from-emerald-500/20 via-emerald-500/5 border-emerald-400/30"
+        />
+        <StatCard
+          icon={<Trophy className="h-4 w-4" />}
           label="Total Nonton"
           value={formatWatchTime(profile.watchSeconds)}
-          accent="from-fuchsia-500/20 via-fuchsia-500/5 border-fuchsia-400/30"
+          accent="from-amber-500/20 via-amber-500/5 border-amber-400/30"
         />
         <StatCard
           icon={<MessageSquare className="h-4 w-4" />}
           label="Komentar"
           value={`${profile.commentCount}`}
-          accent="from-emerald-500/20 via-emerald-500/5 border-emerald-400/30"
+          accent="from-brand-500/20 via-brand-500/5 border-brand-400/30"
         />
       </section>
 
