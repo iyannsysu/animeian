@@ -5,7 +5,8 @@ import {
   listUserComments,
 } from "@/lib/user";
 import { tierFor, formatWatchTime } from "@/lib/level";
-import LevelBadge from "@/components/LevelBadge";
+import { getAdminUserIds } from "@/lib/admin";
+import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
 import { CalendarDays, Clock, MessageSquare, Sparkles, Trophy } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +27,11 @@ export default async function PublicProfilePage({ params }: Props) {
   const profile = await getPublicProfile(id);
   if (!profile) notFound();
   const tier = tierFor(profile.level);
-  const comments = await listUserComments(id, 30);
+  const [comments, adminIds] = await Promise.all([
+    listUserComments(id, 30),
+    getAdminUserIds(),
+  ]);
+  const isAdmin = adminIds.has(id);
 
   return (
     <div className="container-page space-y-6">
@@ -55,14 +60,20 @@ export default async function PublicProfilePage({ params }: Props) {
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1
-                className={`text-3xl font-black tracking-tight sm:text-4xl ${tier.text}`}
-              >
-                {profile.name}
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">
+                <LevelName
+                  name={profile.name}
+                  level={profile.level}
+                  isAdmin={isAdmin}
+                />
               </h1>
+              {isAdmin ? <AdminBadge size="sm" /> : null}
               <LevelBadge level={profile.level} size="md" />
             </div>
             <p className="mt-2 text-sm text-ink-300">
+              {isAdmin ? (
+                <span className="font-bold text-red-300">Admin · </span>
+              ) : null}
               {tier.name} · Lv {profile.level.toLocaleString("id-ID")} ·{" "}
               {formatWatchTime(profile.watchSeconds)} ditonton
             </p>

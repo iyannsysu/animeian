@@ -2,11 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Crown, Search, ShieldCheck } from "lucide-react";
 import { getSessionUser } from "@/lib/session";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminEmailAsync, getAdminUserIds } from "@/lib/admin";
 import { listAllUsers, getWatchSeconds, touchUser } from "@/lib/user";
 import { computeLevel, formatWatchTime, tierFor } from "@/lib/level";
-import LevelBadge from "@/components/LevelBadge";
+import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
 import AdminLevelForm from "@/components/AdminLevelForm";
+import AdminManageForm from "@/components/AdminManageForm";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export const metadata = {
 
 export default async function AdminLevelPage() {
   const sessionUser = await getSessionUser();
-  if (!sessionUser || !isAdminEmail(sessionUser.email)) {
+  if (!sessionUser || !(await isAdminEmailAsync(sessionUser.email))) {
     notFound();
   }
 
@@ -28,14 +29,27 @@ export default async function AdminLevelPage() {
     email: sessionUser.email,
   });
 
-  const users = await listAllUsers();
+  const [users, adminIds] = await Promise.all([
+    listAllUsers(),
+    getAdminUserIds(),
+  ]);
   const enriched = await Promise.all(
     users.map(async (u) => {
       const sec = await getWatchSeconds(u.id);
-      return { ...u, watchSeconds: sec, level: computeLevel(sec) };
+      return {
+        ...u,
+        watchSeconds: sec,
+        level: computeLevel(sec),
+        isAdmin: adminIds.has(u.id),
+      };
     })
   );
-  enriched.sort((a, b) => b.level - a.level || b.updatedAt - a.updatedAt);
+  enriched.sort(
+    (a, b) =>
+      Number(b.isAdmin) - Number(a.isAdmin) ||
+      b.level - a.level ||
+      b.updatedAt - a.updatedAt
+  );
 
   return (
     <div className="container-page space-y-6">
@@ -62,6 +76,8 @@ export default async function AdminLevelPage() {
           </p>
         </div>
       </header>
+
+      <AdminManageForm currentEmail={sessionUser.email ?? ""} />
 
       <AdminLevelForm />
 
@@ -103,13 +119,18 @@ export default async function AdminLevelPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/u/${encodeURIComponent(u.id)}`}
-                        className={`truncate text-sm font-bold hover:underline ${tier.text}`}
+                        className="truncate text-sm font-bold hover:underline"
                       >
-                        {u.name}
+                        <LevelName
+                          name={u.name}
+                          level={u.level}
+                          isAdmin={u.isAdmin}
+                        />
                       </Link>
+                      {u.isAdmin ? <AdminBadge size="xs" /> : null}
                       <LevelBadge level={u.level} size="xs" />
                     </div>
                     <p className="truncate text-[11px] text-ink-400">

@@ -86,6 +86,12 @@ body {
   .fade-in-up {
     animation: fadeInUp 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+  .animate-omniscient {
+    animation: omniscientShine 6s linear infinite;
+  }
+  .animate-admin-glow {
+    animation: adminGlow 2.4s ease-in-out infinite;
+  }
 }
 
 @keyframes fadeInUp {
@@ -96,6 +102,25 @@ body {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes omniscientShine {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes adminGlow {
+  0%,
+  100% {
+    text-shadow: 0 0 10px rgba(248, 113, 113, 0.55), 0 0 18px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    text-shadow: 0 0 14px rgba(248, 113, 113, 0.85), 0 0 24px rgba(239, 68, 68, 0.5);
   }
 }
 

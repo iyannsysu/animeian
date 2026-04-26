@@ -4,7 +4,7 @@ import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
 import { getWatchSeconds, touchUser } from "@/lib/user";
 import { computeLevel } from "@/lib/level";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminEmailAsync, getAdminUserIds } from "@/lib/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +22,7 @@ export type Comment = {
   likeCount?: number;
   likedByMe?: boolean;
   pinned?: boolean;
+  isAuthorAdmin?: boolean;
 };
 
 const MAX_LEN = 1000;
@@ -58,8 +59,12 @@ export async function GET(
     })
   );
 
-  // Pinned set
-  const pinned = new Set(await kv.smembers(pinKey(series)));
+  // Pinned set + admin set (untuk warna nama merah)
+  const [pinnedArr, adminIds] = await Promise.all([
+    kv.smembers(pinKey(series)),
+    getAdminUserIds(),
+  ]);
+  const pinned = new Set(pinnedArr);
 
   // Like count + likedByMe
   const me = await getSessionUser();
@@ -79,9 +84,11 @@ export async function GET(
     likedByMe: likedFlags[i] ?? false,
     pinned: pinned.has(c.id),
     parentId: c.parentId ?? null,
+    isAuthorAdmin: adminIds.has(c.userId),
   }));
 
-  return NextResponse.json({ items: enriched, isAdmin: isAdminEmail(me?.email) });
+  const isAdmin = await isAdminEmailAsync(me?.email);
+  return NextResponse.json({ items: enriched, isAdmin });
 }
 
 export async function POST(
@@ -148,7 +155,7 @@ export async function DELETE(
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ ok: false }, { status: 400 });
-  const isAdmin = isAdminEmail(user.email);
+  const isAdmin = await isAdminEmailAsync(user.email);
 
   const raws = await kv.lrangeRaw(key(series), 0, 1000);
   for (const raw of raws) {

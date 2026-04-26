@@ -5,7 +5,8 @@ import {
   listAllUsers,
 } from "@/lib/user";
 import { computeLevel, formatWatchTime, tierFor } from "@/lib/level";
-import LevelBadge from "@/components/LevelBadge";
+import { getAdminUserIds } from "@/lib/admin";
+import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
 
 export const revalidate = 300;
 
@@ -15,11 +16,19 @@ export const metadata = {
 };
 
 export default async function LeaderboardPage() {
-  const users = await listAllUsers();
+  const [users, adminIds] = await Promise.all([
+    listAllUsers(),
+    getAdminUserIds(),
+  ]);
   const ranked = await Promise.all(
     users.map(async (u) => {
       const sec = await getWatchSeconds(u.id);
-      return { ...u, watchSeconds: sec, level: computeLevel(sec) };
+      return {
+        ...u,
+        watchSeconds: sec,
+        level: computeLevel(sec),
+        isAdmin: adminIds.has(u.id),
+      };
     })
   );
   ranked.sort(
@@ -94,14 +103,22 @@ export default async function LeaderboardPage() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/u/${encodeURIComponent(u.id)}`}
-                    className={`truncate text-sm font-bold hover:underline sm:text-base ${tier.text}`}
-                  >
-                    {u.name}
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/u/${encodeURIComponent(u.id)}`}
+                      className="truncate text-sm font-bold hover:underline sm:text-base"
+                    >
+                      <LevelName
+                        name={u.name}
+                        level={u.level}
+                        isAdmin={u.isAdmin}
+                      />
+                    </Link>
+                    {u.isAdmin ? <AdminBadge size="xs" /> : null}
+                  </div>
                   <p className="text-[11px] text-ink-400">
-                    {tier.name} · {formatWatchTime(u.watchSeconds)} ditonton
+                    {u.isAdmin ? "Admin · " : ""}{tier.name} ·{" "}
+                    {formatWatchTime(u.watchSeconds)} ditonton
                   </p>
                 </div>
                 <LevelBadge level={u.level} size="sm" showName={false} />

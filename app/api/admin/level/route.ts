@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminEmailAsync } from "@/lib/admin";
 import {
   getStoredUser,
   getWatchSeconds,
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 async function requireAdmin() {
   const user = await getSessionUser();
   if (!user) return { ok: false as const, status: 401, reason: "unauthorized" };
-  if (!isAdminEmail(user.email))
+  if (!(await isAdminEmailAsync(user.email)))
     return { ok: false as const, status: 403, reason: "forbidden" };
   return { ok: true as const, user };
 }

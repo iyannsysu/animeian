@@ -150,10 +150,10 @@ export const TIERS: Tier[] = [
     min: 9999,
     max: 9999,
     name: "Omniscient",
-    text: "bg-[linear-gradient(90deg,#fb7185,#fbbf24,#34d399,#60a5fa,#a78bfa,#f472b6)] bg-clip-text text-transparent animate-pulse",
-    chip: "bg-gradient-to-r from-rose-500/20 via-fuchsia-500/20 to-amber-400/20",
+    text: "bg-[linear-gradient(90deg,#fbbf24,#f472b6,#a78bfa,#60a5fa,#fbbf24)] bg-[length:200%_100%] bg-clip-text text-transparent drop-shadow-[0_0_6px_rgba(244,114,182,0.45)] animate-omniscient",
+    chip: "bg-gradient-to-r from-amber-400/20 via-fuchsia-500/20 to-indigo-500/20",
     border: "border-fuchsia-300/80",
-    glow: "shadow-[0_0_32px_-4px_rgba(236,72,153,1)]",
+    glow: "shadow-[0_0_30px_-6px_rgba(236,72,153,0.95)]",
   },
 ];
 

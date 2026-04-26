@@ -12,11 +12,11 @@ import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
 import type { HistoryEntry } from "@/lib/history";
 import ProfileActions from "@/components/ProfileActions";
-import LevelBadge from "@/components/LevelBadge";
+import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
 import { getWatchSeconds, touchUser } from "@/lib/user";
 import { formatWatchTime, levelProgress, tierFor } from "@/lib/level";
 import { ShieldCheck, Trophy } from "lucide-react";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminEmailAsync } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +57,7 @@ export default async function ProfilePage() {
   const watchSeconds = await getWatchSeconds(user.id);
   const prog = levelProgress(watchSeconds);
   const tier = tierFor(prog.level);
+  const isAdmin = await isAdminEmailAsync(user.email);
 
   return (
     <div className="container-page space-y-10">
@@ -100,10 +101,9 @@ export default async function ProfilePage() {
               </span>
               <LevelBadge level={prog.level} size="sm" />
             </div>
-            <h1
-              className={`mt-2 truncate text-2xl font-black tracking-tight sm:text-4xl ${tier.text}`}
-            >
-              {user.name}
+            <h1 className="mt-2 flex flex-wrap items-center gap-2 truncate text-2xl font-black tracking-tight sm:text-4xl">
+              <LevelName name={user.name} level={prog.level} isAdmin={isAdmin} />
+              {isAdmin ? <AdminBadge size="sm" /> : null}
             </h1>
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-300 sm:text-sm">
               <Mail className="h-3.5 w-3.5 text-ink-400" /> {user.email}
@@ -131,10 +131,10 @@ export default async function ProfilePage() {
                 >
                   <Trophy className="h-3 w-3" /> Lihat profil publik saya
                 </Link>
-                {isAdminEmail(user.email) ? (
+                {isAdmin ? (
                   <Link
                     href="/admin/level"
-                    className="inline-flex items-center gap-1 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-fuchsia-200 hover:border-fuchsia-400/70 hover:bg-fuchsia-500/25"
+                    className="inline-flex items-center gap-1 rounded-full border border-red-400/50 bg-red-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-red-200 hover:border-red-400/80 hover:bg-red-500/25"
                   >
                     <ShieldCheck className="h-3 w-3" /> Admin Panel
                   </Link>

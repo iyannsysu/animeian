@@ -13,7 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Comment } from "@/app/api/comments/[series]/route";
-import LevelBadge, { LevelName } from "@/components/LevelBadge";
+import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
 
 type Props = { series: string };
 
@@ -388,8 +388,13 @@ function CommentRow({
             href={`/u/${encodeURIComponent(c.userId)}`}
             className="truncate text-[13px] font-semibold hover:underline"
           >
-            <LevelName name={c.userName} level={c.userLevel ?? 1} />
+            <LevelName
+              name={c.userName}
+              level={c.userLevel ?? 1}
+              isAdmin={!!c.isAuthorAdmin}
+            />
           </Link>
+          {c.isAuthorAdmin ? <AdminBadge size="xs" /> : null}
           <LevelBadge level={c.userLevel ?? 1} size="xs" />
           {c.pinned ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">

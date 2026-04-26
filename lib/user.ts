@@ -1,6 +1,7 @@
 import { kv } from "@/lib/kv";
 import type { Comment } from "@/app/api/comments/[series]/route";
 import { computeLevel, levelProgress, tierFor } from "@/lib/level";
+import { syncAdminUserId } from "@/lib/admin";
 
 export type StoredUser = {
   id: string;
@@ -41,6 +42,10 @@ export async function touchUser(input: {
   await kv.set(userKey(input.id), next);
   // Daftar registry user untuk admin panel
   await kv.sadd("users:all", input.id);
+  // Sync admin userId set (kalau email di allowlist, tag sebagai admin)
+  if (next.email) {
+    await syncAdminUserId(input.id, next.email);
+  }
   return next;
 }
 

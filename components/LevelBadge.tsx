@@ -1,3 +1,4 @@
+import { ShieldCheck } from "lucide-react";
 import { tierFor } from "@/lib/level";
 
 type Size = "xs" | "sm" | "md" | "lg";
@@ -59,15 +60,48 @@ export default function LevelBadge({
   );
 }
 
+/**
+ * Render nama user dengan warna sesuai tier level.
+ * Kalau `isAdmin=true`, override jadi merah (admin always merah, tier glow tetap).
+ */
 export function LevelName({
   name,
   level,
+  isAdmin = false,
   className = "",
 }: {
   name: string;
   level: number;
+  isAdmin?: boolean;
   className?: string;
 }) {
   const tier = tierFor(level);
+  if (isAdmin) {
+    return (
+      <span
+        className={`bg-gradient-to-r from-red-300 via-red-400 to-rose-500 bg-clip-text font-extrabold text-transparent animate-admin-glow ${className}`}
+      >
+        {name}
+      </span>
+    );
+  }
   return <span className={`${tier.text} ${className}`}>{name}</span>;
+}
+
+/**
+ * Badge "ADMIN" merah kecil — render di samping nama.
+ */
+export function AdminBadge({ size = "xs" }: { size?: "xs" | "sm" }) {
+  const cls =
+    size === "xs"
+      ? "gap-0.5 px-1.5 py-0.5 text-[9px]"
+      : "gap-1 px-2 py-0.5 text-[10px]";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border border-red-400/60 bg-gradient-to-r from-red-500/25 to-rose-500/25 font-black uppercase tracking-[0.2em] text-red-200 shadow-[0_0_12px_-4px_rgba(248,113,113,0.7)] ${cls}`}
+    >
+      <ShieldCheck className="h-2.5 w-2.5" />
+      ADMIN
+    </span>
+  );
 }

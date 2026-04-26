@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
-import { isAdminEmail } from "@/lib/admin";
+import { isAdminEmailAsync } from "@/lib/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: { series: string } }
 ) {
   const user = await getSessionUser();
-  if (!user || !isAdminEmail(user.email))
+  if (!user || !(await isAdminEmailAsync(user.email)))
     return NextResponse.json({ ok: false, reason: "forbidden" }, { status: 403 });
   if (!kv.available)
     return NextResponse.json({ ok: false, reason: "kv_unavailable" }, { status: 503 });
