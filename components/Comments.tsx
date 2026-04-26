@@ -499,24 +499,24 @@ function CommentRow({
     <div
       className={`relative flex items-start gap-2.5 overflow-hidden rounded-2xl ${
         isMine
-          ? "border border-indigo-400/20 bg-ink-900/40 p-3"
+          ? "border border-indigo-400/20 p-3"
           : ""
       }`}
     >
-      {/* Latar belakang foto profile (hanya di komentar milik kita) */}
-      {isMine && c.userImage ? (
+      {/* Latar belakang ber-tema (sama untuk semua komen milik kita) */}
+      {isMine ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={c.userImage}
+            src="https://raw.githubusercontent.com/iyannsysu/foto-all/refs/heads/main/25b2ae0db88deb74e4bf03e8b6b69390.jpg"
             alt=""
             aria-hidden
             referrerPolicy="no-referrer"
-            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl"
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-50"
           />
           <span
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/65 to-ink-950/40"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/80 via-ink-950/55 to-ink-950/35"
           />
         </>
       ) : null}
