@@ -16,7 +16,11 @@ import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
 import type { HistoryEntry } from "@/lib/history";
 import ProfileActions from "@/components/ProfileActions";
-import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
+import LevelBadge, {
+  LevelName,
+  AdminBadge,
+  VerifiedBadge,
+} from "@/components/LevelBadge";
 import ProfileEditor from "@/components/ProfileEditor";
 import ActiveStatus from "@/components/ActiveStatus";
 import ProfileHistoryList from "@/components/ProfileHistoryList";
@@ -176,6 +180,7 @@ export default async function ProfilePage() {
             </div>
             <h1 className="mt-2 flex flex-wrap items-center gap-2 truncate text-2xl font-black tracking-tight sm:text-4xl">
               <LevelName name={display.name} level={prog.level} isAdmin={isAdmin} />
+              {stored?.verified ? <VerifiedBadge size="md" /> : null}
               {isAdmin ? <AdminBadge size="sm" /> : null}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">

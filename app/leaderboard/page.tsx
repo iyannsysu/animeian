@@ -3,11 +3,16 @@ import { Crown, Sparkles, Trophy } from "lucide-react";
 import {
   getWatchSeconds,
   listAllUsers,
+  listVerifiedUserIds,
   resolveDisplayUser,
 } from "@/lib/user";
 import { computeLevel, formatWatchTime, tierFor } from "@/lib/level";
 import { getAdminUserIds } from "@/lib/admin";
-import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
+import LevelBadge, {
+  LevelName,
+  AdminBadge,
+  VerifiedBadge,
+} from "@/components/LevelBadge";
 
 export const revalidate = 300;
 
@@ -17,9 +22,10 @@ export const metadata = {
 };
 
 export default async function LeaderboardPage() {
-  const [users, adminIds] = await Promise.all([
+  const [users, adminIds, verifiedIds] = await Promise.all([
     listAllUsers(),
     getAdminUserIds(),
+    listVerifiedUserIds(),
   ]);
   const ranked = await Promise.all(
     users.map(async (u) => {
@@ -32,6 +38,7 @@ export default async function LeaderboardPage() {
         watchSeconds: sec,
         level: computeLevel(sec),
         isAdmin: adminIds.has(u.id),
+        isVerified: verifiedIds.has(u.id),
       };
     })
   );
@@ -118,6 +125,7 @@ export default async function LeaderboardPage() {
                         isAdmin={u.isAdmin}
                       />
                     </Link>
+                    {u.isVerified ? <VerifiedBadge size="xs" /> : null}
                     {u.isAdmin ? <AdminBadge size="xs" /> : null}
                   </div>
                   <p className="text-[11px] text-ink-400">

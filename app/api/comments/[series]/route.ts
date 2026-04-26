@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/session";
 import {
   getStoredUser,
   getWatchSeconds,
+  listVerifiedUserIds,
   resolveDisplayUser,
   touchUser,
 } from "@/lib/user";
@@ -28,6 +29,8 @@ export type Comment = {
   likedByMe?: boolean;
   pinned?: boolean;
   isAuthorAdmin?: boolean;
+  /** Centang biru — true kalau author di-verifikasi admin. */
+  isAuthorVerified?: boolean;
   /** Optional gambar yang dilampirkan komentar (data URL JPEG/PNG/WEBP). */
   imageData?: string;
 };
@@ -87,10 +90,11 @@ export async function GET(
     })
   );
 
-  // Pinned set + admin set (untuk warna nama merah)
-  const [pinnedArr, adminIds] = await Promise.all([
+  // Pinned set + admin set (untuk warna nama merah) + verified set (centang biru)
+  const [pinnedArr, adminIds, verifiedIds] = await Promise.all([
     kv.smembers(pinKey(series)),
     getAdminUserIds(),
+    listVerifiedUserIds(),
   ]);
   const pinned = new Set(pinnedArr);
 
@@ -117,6 +121,7 @@ export async function GET(
       pinned: pinned.has(c.id),
       parentId: c.parentId ?? null,
       isAuthorAdmin: adminIds.has(c.userId),
+      isAuthorVerified: verifiedIds.has(c.userId),
     };
   });
 

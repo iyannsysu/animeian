@@ -23,7 +23,11 @@ import {
   X as XIcon,
 } from "lucide-react";
 import type { Comment } from "@/app/api/comments/[series]/route";
-import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
+import LevelBadge, {
+  LevelName,
+  AdminBadge,
+  VerifiedBadge,
+} from "@/components/LevelBadge";
 import { compressImageToDataUrl } from "@/lib/clientImage";
 
 type Props = { series: string };
@@ -490,22 +494,47 @@ function CommentRow({
   onZoomImage?: (src: string) => void;
 }) {
   const canDelete = isAdmin || (userId && c.userId === userId);
+  const isMine = !!userId && c.userId === userId;
   return (
-    <div className="flex items-start gap-2.5">
-      <Link href={`/u/${encodeURIComponent(c.userId)}`} className="shrink-0">
+    <div
+      className={`relative flex items-start gap-2.5 overflow-hidden rounded-2xl ${
+        isMine
+          ? "border border-indigo-400/20 bg-ink-900/40 p-3"
+          : ""
+      }`}
+    >
+      {/* Latar belakang foto profile (hanya di komentar milik kita) */}
+      {isMine && c.userImage ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={c.userImage}
+            alt=""
+            aria-hidden
+            referrerPolicy="no-referrer"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-xl"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/65 to-ink-950/40"
+          />
+        </>
+      ) : null}
+      <Link href={`/u/${encodeURIComponent(c.userId)}`} className="relative shrink-0">
         <Avatar name={c.userName} image={c.userImage} />
       </Link>
-      <div className="min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <Link
             href={`/u/${encodeURIComponent(c.userId)}`}
-            className="truncate text-[13px] font-semibold hover:underline"
+            className="inline-flex items-center gap-1 truncate text-[13px] font-semibold hover:underline"
           >
             <LevelName
               name={c.userName}
               level={c.userLevel ?? 1}
               isAdmin={!!c.isAuthorAdmin}
             />
+            {c.isAuthorVerified ? <VerifiedBadge size="xs" /> : null}
           </Link>
           {c.isAuthorAdmin ? <AdminBadge size="xs" /> : null}
           <LevelBadge level={c.userLevel ?? 1} size="xs" />

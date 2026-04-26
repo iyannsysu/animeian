@@ -3,11 +3,21 @@ import Link from "next/link";
 import { Crown, Search, ShieldCheck } from "lucide-react";
 import { getSessionUser } from "@/lib/session";
 import { isAdminEmailAsync, getAdminUserIds } from "@/lib/admin";
-import { listAllUsers, getWatchSeconds, touchUser } from "@/lib/user";
+import {
+  listAllUsers,
+  getWatchSeconds,
+  touchUser,
+  listVerifiedUserIds,
+} from "@/lib/user";
 import { computeLevel, formatWatchTime, tierFor } from "@/lib/level";
-import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
+import LevelBadge, {
+  LevelName,
+  AdminBadge,
+  VerifiedBadge,
+} from "@/components/LevelBadge";
 import AdminLevelForm from "@/components/AdminLevelForm";
 import AdminManageForm from "@/components/AdminManageForm";
+import AdminVerifyForm from "@/components/AdminVerifyForm";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +39,10 @@ export default async function AdminLevelPage() {
     email: sessionUser.email,
   });
 
-  const [users, adminIds] = await Promise.all([
+  const [users, adminIds, verifiedIds] = await Promise.all([
     listAllUsers(),
     getAdminUserIds(),
+    listVerifiedUserIds(),
   ]);
   const enriched = await Promise.all(
     users.map(async (u) => {
@@ -41,6 +52,7 @@ export default async function AdminLevelPage() {
         watchSeconds: sec,
         level: computeLevel(sec),
         isAdmin: adminIds.has(u.id),
+        isVerified: verifiedIds.has(u.id),
       };
     })
   );
@@ -78,6 +90,8 @@ export default async function AdminLevelPage() {
       </header>
 
       <AdminManageForm currentEmail={sessionUser.email ?? ""} />
+
+      <AdminVerifyForm />
 
       <AdminLevelForm />
 
@@ -131,6 +145,7 @@ export default async function AdminLevelPage() {
                         />
                       </Link>
                       {u.isAdmin ? <AdminBadge size="xs" /> : null}
+                      {u.isVerified ? <VerifiedBadge size="xs" /> : null}
                       <LevelBadge level={u.level} size="xs" />
                     </div>
                     <p className="truncate text-[11px] text-ink-400">

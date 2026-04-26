@@ -21,6 +21,8 @@ export type StoredUser = {
   imageOverride?: string;
   lastActiveAt?: number;
   likesReceived?: number;
+  /** Centang biru "verified" — diberikan oleh admin via panel. */
+  verified?: boolean;
 };
 
 function userKey(id: string) {
@@ -125,6 +127,29 @@ export async function updateUserOverrides(
   next.updatedAt = Date.now();
   await kv.set(userKey(id), next);
   return next;
+}
+
+export async function setVerified(
+  id: string,
+  verified: boolean
+): Promise<StoredUser | null> {
+  if (!kv.available || !id) return null;
+  const existing = await getStoredUser(id);
+  if (!existing) return null;
+  const next: StoredUser = { ...existing, verified, updatedAt: Date.now() };
+  await kv.set(userKey(id), next);
+  if (verified) {
+    await kv.sadd("users:verified", id);
+  } else {
+    await kv.srem("users:verified", id);
+  }
+  return next;
+}
+
+export async function listVerifiedUserIds(): Promise<Set<string>> {
+  if (!kv.available) return new Set();
+  const ids = await kv.smembers("users:verified");
+  return new Set(ids);
 }
 
 export async function incLikesReceived(
@@ -271,6 +296,7 @@ export type PublicProfile = {
   isFollowing: boolean;
   totalEpisodes: number;
   totalSeries: number;
+  verified: boolean;
 };
 
 export async function getPublicProfile(
@@ -312,6 +338,7 @@ export async function getPublicProfile(
     isFollowing: follow.isFollowing,
     totalEpisodes: historyStats.totalEpisodes,
     totalSeries: historyStats.totalSeries,
+    verified: !!user.verified,
   };
 }
 

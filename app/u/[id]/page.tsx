@@ -7,7 +7,11 @@ import {
 import { tierFor, formatWatchTime } from "@/lib/level";
 import { getAdminUserIds } from "@/lib/admin";
 import { getSessionUser } from "@/lib/session";
-import LevelBadge, { LevelName, AdminBadge } from "@/components/LevelBadge";
+import LevelBadge, {
+  LevelName,
+  AdminBadge,
+  VerifiedBadge,
+} from "@/components/LevelBadge";
 import ActiveStatus from "@/components/ActiveStatus";
 import FollowButton from "@/components/FollowButton";
 import {
@@ -82,6 +86,7 @@ export default async function PublicProfilePage({ params }: Props) {
                   isAdmin={isAdmin}
                 />
               </h1>
+              {profile.verified ? <VerifiedBadge size="md" /> : null}
               {isAdmin ? <AdminBadge size="sm" /> : null}
               <LevelBadge level={profile.level} size="md" />
             </div>
