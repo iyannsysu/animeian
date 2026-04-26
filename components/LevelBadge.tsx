@@ -1,4 +1,4 @@
-import { ShieldCheck, Star, BadgeCheck } from "lucide-react";
+import { ShieldCheck, Star } from "lucide-react";
 import { tierFor } from "@/lib/level";
 
 type Size = "xs" | "sm" | "md" | "lg";
@@ -142,34 +142,57 @@ export function AdminBadge({ size = "xs" }: { size?: "xs" | "sm" }) {
 }
 
 /**
- * Centang biru "verified" — diberikan oleh admin lewat panel.
+ * Centang biru "verified" persis ala Instagram:
+ * - Scalloped/sunburst edge biru (#0095F6)
+ * - Centang putih di tengah
+ * Diberikan oleh admin lewat panel.
  */
 export function VerifiedBadge({
   size = "xs",
   withLabel = false,
 }: {
-  size?: "xs" | "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg";
   withLabel?: boolean;
 }) {
   const cfg = {
-    xs: { box: "h-3.5 w-3.5", icon: "h-3 w-3", text: "text-[9px]" },
-    sm: { box: "h-4 w-4", icon: "h-3.5 w-3.5", text: "text-[10px]" },
-    md: { box: "h-5 w-5", icon: "h-4 w-4", text: "text-[11px]" },
+    xs: { px: 14, text: "text-[9px]" },
+    sm: { px: 16, text: "text-[10px]" },
+    md: { px: 20, text: "text-[11px]" },
+    lg: { px: 26, text: "text-xs" },
   }[size];
+
   const icon = (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-[0_0_8px_-2px_rgba(56,189,248,0.7)] ${cfg.box}`}
+    <svg
+      width={cfg.px}
+      height={cfg.px}
+      viewBox="0 0 40 40"
+      role="img"
       aria-label="Akun terverifikasi"
-      title="Akun terverifikasi"
+      className="inline-block shrink-0 align-middle drop-shadow-[0_1px_2px_rgba(0,149,246,0.45)]"
     >
-      <BadgeCheck className={`${cfg.icon} fill-blue-500`} strokeWidth={2.5} />
-    </span>
+      {/* Scalloped 12-point sunburst — bentuk khas IG verified */}
+      <path
+        fill="#0095F6"
+        d="M20 2.4 23.2 0l2.5 3.4 4-1.4 1.4 4 4-.5.5 4 3.8 1.5-1.4 3.9 3 2.6L38.2 20l1.8 3.5-3 2.6 1.4 4-3.8 1.4-.5 4-4-.5-1.4 4-4-1.4-2.5 3.4L20 37.6 16.8 40l-2.5-3.4-4 1.4-1.4-4-4 .5-.5-4-3.8-1.5 1.4-3.9-3-2.6L1.8 20 0 16.5l3-2.6-1.4-4 3.8-1.4.5-4 4 .5 1.4-4 4 1.4 2.5-3.4L20 2.4Z"
+      />
+      {/* Centang putih */}
+      <path
+        d="M14 20.5l4.2 4.2 8.3-8.5"
+        fill="none"
+        stroke="#fff"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
   if (!withLabel) return icon;
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1 align-middle">
       {icon}
-      <span className={`font-black uppercase tracking-wide text-sky-300 ${cfg.text}`}>
+      <span
+        className={`font-black uppercase tracking-wide text-sky-300 ${cfg.text}`}
+      >
         Verified
       </span>
     </span>

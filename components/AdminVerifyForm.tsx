@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BadgeCheck, Loader2, Trash2, UserPlus } from "lucide-react";
+import { Loader2, Trash2, UserPlus } from "lucide-react";
+import { VerifiedBadge } from "@/components/LevelBadge";
 
 type VerifiedUser = {
   id: string;
@@ -81,7 +82,7 @@ export default function AdminVerifyForm() {
     <section className="space-y-3 rounded-3xl border border-sky-400/25 bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-ink-900/50 p-5 sm:p-6">
       <header className="flex items-center justify-between gap-3">
         <h2 className="inline-flex items-center gap-2 text-base font-bold tracking-tight sm:text-lg">
-          <BadgeCheck className="h-4 w-4 fill-sky-400 text-white" />
+          <VerifiedBadge size="sm" />
           Kelola Centang Biru (Verified)
         </h2>
         <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-200">
@@ -151,7 +152,7 @@ export default function AdminVerifyForm() {
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 truncate text-sm font-bold">
                     {u.name}
-                    <BadgeCheck className="h-3.5 w-3.5 fill-sky-400 text-white" />
+                    <VerifiedBadge size="xs" />
                   </p>
                   <p className="truncate text-[10px] text-ink-400">
                     {u.email ?? u.id.slice(0, 14)}
