@@ -24,6 +24,7 @@ import LevelBadge, {
 import ProfileEditor from "@/components/ProfileEditor";
 import ActiveStatus from "@/components/ActiveStatus";
 import ProfileHistoryList from "@/components/ProfileHistoryList";
+import AdminSelfVerifyButton from "@/components/AdminSelfVerifyButton";
 import {
   getFollowStats,
   getHistoryStats,
@@ -286,12 +287,18 @@ export default async function ProfilePage() {
                 <Trophy className="h-3 w-3" /> Leaderboard
               </Link>
               {isAdmin ? (
-                <Link
-                  href="/admin/level"
-                  className="inline-flex items-center gap-1 rounded-full border border-red-400/50 bg-red-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-200 hover:border-red-400/80 hover:bg-red-500/25"
-                >
-                  <ShieldCheck className="h-3 w-3" /> Admin Panel
-                </Link>
+                <>
+                  <Link
+                    href="/admin/level"
+                    className="inline-flex items-center gap-1 rounded-full border border-red-400/50 bg-red-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-200 hover:border-red-400/80 hover:bg-red-500/25"
+                  >
+                    <ShieldCheck className="h-3 w-3" /> Admin Panel
+                  </Link>
+                  <AdminSelfVerifyButton
+                    userId={user.id}
+                    initialVerified={!!stored?.verified}
+                  />
+                </>
               ) : null}
             </div>
           </div>

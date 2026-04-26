@@ -85,7 +85,7 @@ export default function LevelBadge({
       </span>
       {showName ? (
         <span
-          className={`inline-flex items-center gap-0.5 ${tier.text} ${s.name} font-black whitespace-nowrap`}
+          className={`inline-flex items-center gap-0.5 ${tier.chipText} ${s.name} font-black whitespace-nowrap`}
         >
           <Star className={`${s.icon} fill-current opacity-90`} />
           <span>{tier.name}</span>
