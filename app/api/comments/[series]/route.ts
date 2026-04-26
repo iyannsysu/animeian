@@ -225,6 +225,25 @@ export async function DELETE(
       // bersihkan side data
       await kv.del(likeKey(series, id));
       await kv.srem(pinKey(series), id);
+      // Hapus juga entry di per-user comments list (biar tidak nyangkut di /profile)
+      try {
+        const ownerId = c.userId;
+        if (ownerId) {
+          const userRaws = await kv.lrangeRaw(userKey(ownerId), 0, 1000);
+          for (const ur of userRaws) {
+            try {
+              const ref = JSON.parse(ur) as { id?: string };
+              if (ref?.id === id) {
+                await kv.lrem(userKey(ownerId), 1, ur);
+              }
+            } catch {
+              /* noop */
+            }
+          }
+        }
+      } catch {
+        /* noop */
+      }
       return NextResponse.json({ ok: true });
     } catch {
       /* noop */

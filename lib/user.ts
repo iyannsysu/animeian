@@ -327,8 +327,36 @@ export async function listUserComments(
   limit = 30
 ): Promise<UserCommentRef[]> {
   if (!kv.available) return [];
-  const items = await kv.lrange<UserCommentRef>(userCommentsKey(id), 0, limit - 1);
-  return items;
+  // Ambil sedikit lebih banyak supaya bisa drop yang sudah terhapus.
+  const raw = await kv.lrange<UserCommentRef>(
+    userCommentsKey(id),
+    0,
+    Math.max(limit * 2, 60) - 1
+  );
+  if (!raw.length) return [];
+
+  // Filter komentar yang sudah dihapus dari thread anime-nya.
+  const seriesSet = Array.from(new Set(raw.map((r) => r.series)));
+  const aliveBySeries = new Map<string, Set<string>>();
+  await Promise.all(
+    seriesSet.map(async (s) => {
+      const raws = await kv.lrangeRaw(`comments:${s}`, 0, 1000);
+      const ids = new Set<string>();
+      for (const r of raws) {
+        try {
+          const c = JSON.parse(r) as { id?: string };
+          if (c?.id) ids.add(c.id);
+        } catch {
+          /* noop */
+        }
+      }
+      aliveBySeries.set(s, ids);
+    })
+  );
+  const filtered = raw.filter((r) =>
+    aliveBySeries.get(r.series)?.has(r.id) ?? false
+  );
+  return filtered.slice(0, limit);
 }
 
 export { computeLevel, tierFor, levelProgress };
