@@ -137,146 +137,201 @@ export default async function ProfilePage() {
   const likesReceived = stored?.likesReceived ?? 0;
 
   return (
-    <div className="container-page space-y-10">
-      {/* Hero header */}
-      <header className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/20 via-fuchsia-500/15 to-ink-900/60 p-6 sm:p-10">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/25 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-28 -left-20 h-64 w-64 rounded-full bg-fuchsia-500/20 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,rgba(129,140,248,0.18),transparent_60%)]"
-        />
+    <div className="container-page space-y-8">
+      {/* ===== Hero header ===== */}
+      <header className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/15 via-fuchsia-500/10 to-ink-900/70">
+        {/* Banner cover atas */}
+        <div className="relative h-32 w-full overflow-hidden sm:h-44">
+          {display.image ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={display.image}
+                alt=""
+                aria-hidden
+                referrerPolicy="no-referrer"
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+              />
+            </>
+          ) : null}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500/35 via-fuchsia-500/25 to-transparent"
+          />
+          <div
+            aria-hidden
+            className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-indigo-500/30 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-fuchsia-500/25 blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-ink-950 via-ink-950/70 to-transparent"
+          />
+        </div>
 
-        <div className="relative flex flex-col items-center gap-5 text-center sm:flex-row sm:text-left">
-          <div className="relative">
-            <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-brand-500 opacity-70 blur-md" />
-            <div className="relative grid h-24 w-24 place-items-center overflow-hidden rounded-full border-2 border-white/20 bg-ink-800 text-3xl font-black text-white sm:h-28 sm:w-28">
-              {display.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={display.image}
-                  alt={display.name}
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span>{display.name.slice(0, 1).toUpperCase()}</span>
-              )}
+        {/* Konten utama */}
+        <div className="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6">
+            {/* Avatar besar */}
+            <div className="relative mx-auto sm:mx-0">
+              <div
+                aria-hidden
+                className="absolute -inset-1.5 rounded-full bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-brand-500 opacity-80 blur-md"
+              />
+              <div className="relative grid h-28 w-28 place-items-center overflow-hidden rounded-full border-[3px] border-ink-950 bg-ink-800 text-3xl font-black text-white shadow-xl sm:h-36 sm:w-36">
+                {display.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={display.image}
+                    alt={display.name}
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{display.name.slice(0, 1).toUpperCase()}</span>
+                )}
+              </div>
+              {/* Centang biru di pojok avatar (ala IG) */}
+              {stored?.verified ? (
+                <span className="absolute -bottom-1 -right-1 rounded-full bg-ink-950 p-0.5 ring-2 ring-ink-950">
+                  <VerifiedBadge size="lg" />
+                </span>
+              ) : null}
+            </div>
+
+            {/* Info utama */}
+            <div className="min-w-0 flex-1 text-center sm:text-left">
+              <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-2xl font-black tracking-tight sm:justify-start sm:text-4xl">
+                <span className="truncate">
+                  <LevelName
+                    name={display.name}
+                    level={prog.level}
+                    isAdmin={isAdmin}
+                  />
+                </span>
+                {stored?.verified ? <VerifiedBadge size="md" /> : null}
+                {isAdmin ? <AdminBadge size="sm" /> : null}
+              </h1>
+
+              {/* Baris meta — email + status aktif */}
+              <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] text-ink-300 sm:justify-start sm:text-sm">
+                <span className="inline-flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 text-ink-400" />
+                  <span className="truncate">{user.email}</span>
+                </span>
+                <ActiveStatus lastActiveAt={stored?.lastActiveAt ?? Date.now()} />
+              </div>
+
+              {/* Badge level + tier */}
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <LevelBadge level={prog.level} size="md" />
+                <span className="rounded-full border border-white/10 bg-ink-900/60 px-2.5 py-1 text-[11px] font-semibold text-ink-300">
+                  <Clock className="-mt-0.5 mr-1 inline h-3 w-3 text-indigo-300" />
+                  {formatWatchTime(watchSeconds)}
+                </span>
+              </div>
+            </div>
+
+            {/* Tombol aksi */}
+            <div className="flex shrink-0 justify-center sm:justify-end">
+              <ProfileActions />
             </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="inline-flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
-                <Sparkles className="h-3 w-3" /> Profil Ian
+          {/* Progress bar level */}
+          <div className="mt-5 rounded-2xl border border-white/10 bg-ink-950/60 p-3 sm:p-4">
+            <div className="flex items-baseline justify-between text-[11px] text-ink-300">
+              <span className="font-bold uppercase tracking-wider">
+                {tier.name}
               </span>
-              <LevelBadge level={prog.level} size="sm" />
+              <span className="tabular-nums text-ink-400">
+                {Math.floor(prog.withinSec / 60)}/
+                {Math.floor(prog.spanSec / 60)} menit → Lv {prog.level + 1}
+              </span>
             </div>
-            <h1 className="mt-2 flex flex-wrap items-center gap-2 truncate text-2xl font-black tracking-tight sm:text-4xl">
-              <LevelName name={display.name} level={prog.level} isAdmin={isAdmin} />
-              {stored?.verified ? <VerifiedBadge size="md" /> : null}
-              {isAdmin ? <AdminBadge size="sm" /> : null}
-            </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <p className="inline-flex items-center gap-1.5 text-xs text-ink-300 sm:text-sm">
-                <Mail className="h-3.5 w-3.5 text-ink-400" /> {user.email}
-              </p>
-              <ActiveStatus lastActiveAt={stored?.lastActiveAt ?? Date.now()} />
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-ink-900 ring-1 ring-white/5">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-pink-400"
+                style={{ width: `${prog.pct}%` }}
+              />
             </div>
-            <div className="mt-3 max-w-md">
-              <div className="flex items-baseline justify-between text-[10px] text-ink-400">
-                <span>
-                  {tier.name} · {formatWatchTime(watchSeconds)} ditonton
-                </span>
-                <span>
-                  {Math.floor(prog.withinSec / 60)}/
-                  {Math.floor(prog.spanSec / 60)} menit → Lv {prog.level + 1}
-                </span>
-              </div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-ink-900/80 ring-1 ring-white/10">
-                <div
-                  className="h-full bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-pink-400"
-                  style={{ width: `${prog.pct}%` }}
-                />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Link
+                href={`/u/${encodeURIComponent(user.id)}`}
+                className="inline-flex items-center gap-1 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-200 hover:border-indigo-400/70 hover:bg-indigo-500/20"
+              >
+                <Trophy className="h-3 w-3" /> Profil Publik
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-200 hover:border-amber-400/70 hover:bg-amber-500/20"
+              >
+                <Trophy className="h-3 w-3" /> Leaderboard
+              </Link>
+              {isAdmin ? (
                 <Link
-                  href={`/u/${encodeURIComponent(user.id)}`}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-indigo-300 hover:text-indigo-200"
+                  href="/admin/level"
+                  className="inline-flex items-center gap-1 rounded-full border border-red-400/50 bg-red-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-red-200 hover:border-red-400/80 hover:bg-red-500/25"
                 >
-                  <Trophy className="h-3 w-3" /> Lihat profil publik saya
+                  <ShieldCheck className="h-3 w-3" /> Admin Panel
                 </Link>
-                {isAdmin ? (
-                  <Link
-                    href="/admin/level"
-                    className="inline-flex items-center gap-1 rounded-full border border-red-400/50 bg-red-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-red-200 hover:border-red-400/80 hover:bg-red-500/25"
-                  >
-                    <ShieldCheck className="h-3 w-3" /> Admin Panel
-                  </Link>
-                ) : null}
-              </div>
+              ) : null}
             </div>
           </div>
 
-          <div className="shrink-0">
-            <ProfileActions />
+          {/* Stat cards */}
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
+            <StatCard
+              icon={<Users className="h-4 w-4" />}
+              label="Followers"
+              value={follow.followers}
+              accent="indigo"
+            />
+            <StatCard
+              icon={<UserPlus className="h-4 w-4" />}
+              label="Following"
+              value={follow.following}
+              accent="fuchsia"
+            />
+            <StatCard
+              icon={<Heart className="h-4 w-4" />}
+              label="Total Like"
+              value={likesReceived}
+              accent="rose"
+            />
+            <StatCard
+              icon={<PlayCircle className="h-4 w-4" />}
+              label="Episode"
+              value={histStats.totalEpisodes}
+              accent="emerald"
+            />
+            <StatCard
+              icon={<Eye className="h-4 w-4" />}
+              label="Seri"
+              value={histStats.totalSeries}
+              accent="amber"
+            />
+            <StatCard
+              icon={<MessageSquare className="h-4 w-4" />}
+              label="Komentar"
+              value={comments.length}
+              accent="brand"
+            />
           </div>
-        </div>
 
-        {/* Stat cards */}
-        <div className="relative mt-6 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
-          <StatCard
-            icon={<Users className="h-4 w-4" />}
-            label="Followers"
-            value={follow.followers}
-            accent="indigo"
-          />
-          <StatCard
-            icon={<UserPlus className="h-4 w-4" />}
-            label="Following"
-            value={follow.following}
-            accent="fuchsia"
-          />
-          <StatCard
-            icon={<Heart className="h-4 w-4" />}
-            label="Total Like"
-            value={likesReceived}
-            accent="rose"
-          />
-          <StatCard
-            icon={<PlayCircle className="h-4 w-4" />}
-            label="Episode"
-            value={histStats.totalEpisodes}
-            accent="emerald"
-          />
-          <StatCard
-            icon={<Eye className="h-4 w-4" />}
-            label="Seri"
-            value={histStats.totalSeries}
-            accent="amber"
-          />
-          <StatCard
-            icon={<MessageSquare className="h-4 w-4" />}
-            label="Komentar"
-            value={comments.length}
-            accent="brand"
-          />
+          {totalWatch > 0 ? (
+            <p className="mt-4 text-center text-[11px] text-ink-400 sm:text-left">
+              <Activity className="-mt-0.5 mr-1 inline h-3 w-3 text-indigo-300" />
+              Total tontonan dari progress:{" "}
+              <span className="font-bold text-indigo-300">
+                {fmtDuration(totalWatch)}
+              </span>
+            </p>
+          ) : null}
         </div>
-
-        {totalWatch > 0 ? (
-          <p className="relative mt-4 text-center text-[11px] text-ink-400 sm:text-left">
-            Total tontonan:{" "}
-            <span className="font-bold text-indigo-300">
-              {fmtDuration(totalWatch)}
-            </span>
-          </p>
-        ) : null}
       </header>
 
       {/* Edit nama + foto profil */}
