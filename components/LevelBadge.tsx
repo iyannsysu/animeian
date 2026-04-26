@@ -156,9 +156,9 @@ export function VerifiedBadge({
 }) {
   const cfg = {
     xs: { px: 14, text: "text-[9px]" },
-    sm: { px: 16, text: "text-[10px]" },
-    md: { px: 20, text: "text-[11px]" },
-    lg: { px: 26, text: "text-xs" },
+    sm: { px: 18, text: "text-[10px]" },
+    md: { px: 22, text: "text-[11px]" },
+    lg: { px: 36, text: "text-xs" },
   }[size];
 
   const icon = (

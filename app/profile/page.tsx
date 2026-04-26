@@ -194,9 +194,13 @@ export default async function ProfilePage() {
                   <span>{display.name.slice(0, 1).toUpperCase()}</span>
                 )}
               </div>
-              {/* Centang biru di pojok avatar (ala IG) */}
+              {/* Centang biru besar di pojok avatar (ala IG/Twitter) */}
               {stored?.verified ? (
-                <span className="absolute -bottom-1 -right-1 rounded-full bg-ink-950 p-0.5 ring-2 ring-ink-950">
+                <span
+                  className="absolute -bottom-1 -right-1 grid place-items-center rounded-full bg-ink-950 p-1 ring-[3px] ring-ink-950"
+                  aria-label="Akun terverifikasi"
+                  title="Akun terverifikasi"
+                >
                   <VerifiedBadge size="lg" />
                 </span>
               ) : null}
@@ -215,6 +219,16 @@ export default async function ProfilePage() {
                 {stored?.verified ? <VerifiedBadge size="md" /> : null}
                 {isAdmin ? <AdminBadge size="sm" /> : null}
               </h1>
+
+              {/* Pill "VERIFIED" yang jelas di bawah nama */}
+              {stored?.verified ? (
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/50 bg-sky-500/15 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-sky-200 shadow-[0_0_18px_-6px_rgba(56,189,248,0.85)]">
+                    <VerifiedBadge size="sm" />
+                    Verified
+                  </span>
+                </div>
+              ) : null}
 
               {/* Baris meta — email + status aktif */}
               <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] text-ink-300 sm:justify-start sm:text-sm">
