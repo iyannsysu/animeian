@@ -19,11 +19,13 @@ export type Tier = {
 };
 
 // Tier ladder. Urut dari terendah ke tertinggi.
+// Nama dibuat singkat (≤8 huruf) supaya badge tidak overflow di mobile,
+// dan ber-vibe anime/manga supaya lebih iconic.
 export const TIERS: Tier[] = [
   {
     min: 1,
     max: 4,
-    name: "Pendatang",
+    name: "ROOKIE",
     text: "text-ink-300",
     chip: "bg-ink-800/80",
     border: "border-ink-700",
@@ -41,7 +43,7 @@ export const TIERS: Tier[] = [
   {
     min: 10,
     max: 19,
-    name: "Newbie",
+    name: "GENIN",
     text: "text-emerald-300",
     chip: "bg-emerald-500/15",
     border: "border-emerald-400/50",
@@ -50,7 +52,7 @@ export const TIERS: Tier[] = [
   {
     min: 20,
     max: 39,
-    name: "Super Newbie",
+    name: "CHUUNIN",
     text: "text-teal-300",
     chip: "bg-teal-500/15",
     border: "border-teal-400/50",
@@ -59,7 +61,7 @@ export const TIERS: Tier[] = [
   {
     min: 40,
     max: 69,
-    name: "Otaku Pemula",
+    name: "OTAKU",
     text: "text-cyan-300",
     chip: "bg-cyan-500/15",
     border: "border-cyan-400/50",
@@ -68,7 +70,7 @@ export const TIERS: Tier[] = [
   {
     min: 70,
     max: 99,
-    name: "Otaku",
+    name: "WEEB",
     text: "text-sky-300",
     chip: "bg-sky-500/15",
     border: "border-sky-400/50",
@@ -77,7 +79,7 @@ export const TIERS: Tier[] = [
   {
     min: 100,
     max: 149,
-    name: "Weeb",
+    name: "SENPAI",
     text: "text-blue-300",
     chip: "bg-blue-500/15",
     border: "border-blue-400/50",
@@ -86,7 +88,7 @@ export const TIERS: Tier[] = [
   {
     min: 150,
     max: 249,
-    name: "Senpai",
+    name: "JOUNIN",
     text: "text-indigo-300",
     chip: "bg-indigo-500/15",
     border: "border-indigo-400/55",
@@ -95,7 +97,7 @@ export const TIERS: Tier[] = [
   {
     min: 250,
     max: 499,
-    name: "Kouhai Master",
+    name: "SAGE",
     text: "text-violet-300",
     chip: "bg-violet-500/15",
     border: "border-violet-400/55",
@@ -104,7 +106,7 @@ export const TIERS: Tier[] = [
   {
     min: 500,
     max: 999,
-    name: "Anime Lord",
+    name: "HOKAGE",
     text: "bg-gradient-to-r from-fuchsia-300 to-pink-300 bg-clip-text text-transparent",
     chip: "bg-fuchsia-500/15",
     border: "border-fuchsia-400/60",
@@ -113,7 +115,7 @@ export const TIERS: Tier[] = [
   {
     min: 1000,
     max: 1999,
-    name: "Shounen Hero",
+    name: "SAIYAN",
     text: "bg-gradient-to-r from-pink-300 via-rose-300 to-amber-300 bg-clip-text text-transparent",
     chip: "bg-pink-500/15",
     border: "border-pink-400/60",
@@ -122,7 +124,7 @@ export const TIERS: Tier[] = [
   {
     min: 2000,
     max: 3999,
-    name: "Isekai Transcendent",
+    name: "ISEKAI",
     text: "bg-gradient-to-r from-rose-300 via-fuchsia-300 to-indigo-300 bg-clip-text text-transparent",
     chip: "bg-rose-500/15",
     border: "border-rose-400/60",
@@ -131,7 +133,7 @@ export const TIERS: Tier[] = [
   {
     min: 4000,
     max: 6999,
-    name: "Sage of Ages",
+    name: "DEMI-GOD",
     text: "bg-gradient-to-r from-amber-200 via-yellow-200 to-amber-300 bg-clip-text text-transparent",
     chip: "bg-amber-500/15",
     border: "border-amber-300/70",
@@ -140,7 +142,7 @@ export const TIERS: Tier[] = [
   {
     min: 7000,
     max: 9998,
-    name: "Demon King",
+    name: "DEMON LORD",
     text: "bg-gradient-to-r from-red-400 via-orange-400 to-amber-300 bg-clip-text text-transparent",
     chip: "bg-red-500/15",
     border: "border-red-400/70",
@@ -149,7 +151,7 @@ export const TIERS: Tier[] = [
   {
     min: 9999,
     max: 9999,
-    name: "Omniscient",
+    name: "GOD",
     text: "bg-[linear-gradient(90deg,#fbbf24,#f472b6,#a78bfa,#60a5fa,#fbbf24)] bg-[length:200%_100%] bg-clip-text text-transparent drop-shadow-[0_0_6px_rgba(244,114,182,0.45)] animate-omniscient",
     chip: "bg-gradient-to-r from-amber-400/20 via-fuchsia-500/20 to-indigo-500/20",
     border: "border-fuchsia-300/80",
