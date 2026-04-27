@@ -143,7 +143,21 @@ export default async function ProfilePage() {
       <header className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/15 via-fuchsia-500/10 to-ink-900/70">
         {/* Banner cover atas */}
         <div className="relative h-32 w-full overflow-hidden sm:h-44">
-          {display.image ? (
+          {stored?.bannerImage ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={stored.bannerImage}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div
+                aria-hidden
+                className="absolute inset-0 bg-gradient-to-b from-transparent to-ink-950/60"
+              />
+            </>
+          ) : display.image ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -248,6 +262,13 @@ export default async function ProfilePage() {
                   {formatWatchTime(watchSeconds)}
                 </span>
               </div>
+
+              {/* Bio (kalau diset) */}
+              {stored?.bio ? (
+                <p className="mx-auto mt-3 max-w-md whitespace-pre-wrap text-[13px] leading-relaxed text-ink-200 sm:mx-0 sm:max-w-none">
+                  {stored.bio}
+                </p>
+              ) : null}
             </div>
 
             {/* Tombol aksi */}
@@ -363,6 +384,8 @@ export default async function ProfilePage() {
         googleImage={user.image}
         hasNameOverride={!!stored?.nameOverride}
         hasImageOverride={!!stored?.imageOverride}
+        initialBio={stored?.bio ?? null}
+        initialBanner={stored?.bannerImage ?? null}
       />
 
       {/* History */}

@@ -114,6 +114,22 @@ export const kv = {
     const r = await run<number>(["HDEL", key, ...fields]);
     return r ?? 0;
   },
+  async hincrby(key: string, field: string, increment: number): Promise<number> {
+    const r = await run<number>(["HINCRBY", key, field, increment]);
+    return r ?? 0;
+  },
+  async hkeys(key: string): Promise<string[]> {
+    const r = await run<string[]>(["HKEYS", key]);
+    return r ?? [];
+  },
+  async hlen(key: string): Promise<number> {
+    const r = await run<number>(["HLEN", key]);
+    return r ?? 0;
+  },
+  async llen(key: string): Promise<number> {
+    const r = await run<number>(["LLEN", key]);
+    return r ?? 0;
+  },
   async lpush(key: string, ...values: unknown[]): Promise<number> {
     const vs = values.map((v) => (typeof v === "string" ? v : JSON.stringify(v)));
     const r = await run<number>(["LPUSH", key, ...vs]);

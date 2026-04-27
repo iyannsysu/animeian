@@ -11,6 +11,8 @@ import {
 } from "@/lib/user";
 import { computeLevel } from "@/lib/level";
 import { isAdminEmailAsync, getAdminUserIds } from "@/lib/admin";
+import { pushNotif } from "@/lib/notifications";
+import { clearReactions, getReactions } from "@/lib/reactions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +35,10 @@ export type Comment = {
   isAuthorVerified?: boolean;
   /** Optional gambar yang dilampirkan komentar (data URL JPEG/PNG/WEBP). */
   imageData?: string;
+  /** Reaksi emoji per komen (selain ❤️ like): { emoji: count }. */
+  reactionCounts?: Record<string, number>;
+  /** Emoji yang sudah di-react oleh viewer. */
+  myReactions?: string[];
 };
 
 const IMAGE_MAX_BYTES = 260_000;
@@ -98,7 +104,7 @@ export async function GET(
   ]);
   const pinned = new Set(pinnedArr);
 
-  // Like count + likedByMe
+  // Like count + likedByMe + reactions (emoji selain ❤️)
   const me = await getSessionUser();
   const likeCounts = await Promise.all(
     items.map((c) => kv.scard(likeKey(series, c.id)))
@@ -108,6 +114,9 @@ export async function GET(
         items.map((c) => kv.sismember(likeKey(series, c.id), me.id))
       )
     : items.map(() => false);
+  const reactionStates = await Promise.all(
+    items.map((c) => getReactions(series, c.id, me?.id ?? null))
+  );
 
   const enriched: Comment[] = items.map((c, i) => {
     const display = displayMap[c.userId];
@@ -122,6 +131,8 @@ export async function GET(
       parentId: c.parentId ?? null,
       isAuthorAdmin: adminIds.has(c.userId),
       isAuthorVerified: verifiedIds.has(c.userId),
+      reactionCounts: reactionStates[i]?.counts ?? {},
+      myReactions: reactionStates[i]?.mine ?? [],
     };
   });
 
@@ -198,6 +209,32 @@ export async function POST(
     createdAt: entry.createdAt,
   });
   await kv.ltrim(userKey(user.id), 0, 200);
+
+  // Reply notif → push ke author komentar parent
+  if (entry.parentId) {
+    const raws = await kv.lrangeRaw(key(series), 0, 1000);
+    for (const raw of raws) {
+      try {
+        const parent = JSON.parse(raw) as Comment;
+        if (parent.id !== entry.parentId) continue;
+        if (parent.userId && parent.userId !== user.id) {
+          await pushNotif(parent.userId, {
+            type: "reply",
+            fromId: user.id,
+            fromName: entry.userName,
+            fromImage: entry.userImage,
+            series,
+            body: text.slice(0, 100),
+            href: `/anime/${encodeURIComponent(series)}#comments`,
+          });
+        }
+        break;
+      } catch {
+        /* noop */
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true, comment: entry });
 }
 
@@ -230,6 +267,7 @@ export async function DELETE(
       // bersihkan side data
       await kv.del(likeKey(series, id));
       await kv.srem(pinKey(series), id);
+      await clearReactions(series, id);
       // Hapus juga entry di per-user comments list (biar tidak nyangkut di /profile)
       try {
         const ownerId = c.userId;

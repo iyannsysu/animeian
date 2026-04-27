@@ -23,6 +23,12 @@ export type StoredUser = {
   likesReceived?: number;
   /** Centang biru "verified" — diberikan oleh admin via panel. */
   verified?: boolean;
+  /** Bio singkat di halaman profile (≤160 char). */
+  bio?: string;
+  /** Banner cover kustom (data URL JPEG/WEBP, dipampatkan klien). */
+  bannerImage?: string;
+  /** Up to 3 anime favorit yang ditampilkan di profile (slug). */
+  showcase?: string[];
 };
 
 function userKey(id: string) {
@@ -104,7 +110,13 @@ export async function pingPresence(id: string): Promise<void> {
  */
 export async function updateUserOverrides(
   id: string,
-  patch: { name?: string | null; image?: string | null }
+  patch: {
+    name?: string | null;
+    image?: string | null;
+    bio?: string | null;
+    bannerImage?: string | null;
+    showcase?: string[] | null;
+  }
 ): Promise<StoredUser | null> {
   if (!kv.available) return null;
   const existing = await getStoredUser(id);
@@ -122,6 +134,29 @@ export async function updateUserOverrides(
       delete next.imageOverride;
     } else {
       next.imageOverride = patch.image;
+    }
+  }
+  if (patch.bio !== undefined) {
+    if (patch.bio === null || patch.bio.trim() === "") {
+      delete next.bio;
+    } else {
+      next.bio = patch.bio.trim().slice(0, 160);
+    }
+  }
+  if (patch.bannerImage !== undefined) {
+    if (patch.bannerImage === null || patch.bannerImage.trim() === "") {
+      delete next.bannerImage;
+    } else {
+      next.bannerImage = patch.bannerImage;
+    }
+  }
+  if (patch.showcase !== undefined) {
+    if (!patch.showcase || patch.showcase.length === 0) {
+      delete next.showcase;
+    } else {
+      next.showcase = patch.showcase
+        .filter((s) => typeof s === "string" && s.trim().length > 0)
+        .slice(0, 3);
     }
   }
   next.updatedAt = Date.now();
@@ -297,6 +332,9 @@ export type PublicProfile = {
   totalEpisodes: number;
   totalSeries: number;
   verified: boolean;
+  bio: string | null;
+  bannerImage: string | null;
+  showcase: string[];
 };
 
 export async function getPublicProfile(
@@ -339,6 +377,9 @@ export async function getPublicProfile(
     totalEpisodes: historyStats.totalEpisodes,
     totalSeries: historyStats.totalSeries,
     verified: !!user.verified,
+    bio: user.bio ?? null,
+    bannerImage: user.bannerImage ?? null,
+    showcase: user.showcase ?? [],
   };
 }
 

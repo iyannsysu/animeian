@@ -55,6 +55,21 @@ export default async function PublicProfilePage({ params }: Props) {
   return (
     <div className="container-page space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/15 via-fuchsia-500/10 to-ink-900/50 p-6 sm:p-10">
+        {profile.bannerImage ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={profile.bannerImage}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-60"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-b from-ink-950/30 via-ink-950/55 to-ink-950/85"
+            />
+          </>
+        ) : null}
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
 
@@ -110,6 +125,12 @@ export default async function PublicProfilePage({ params }: Props) {
                   initialFollowers={profile.followers}
                 />
               </div>
+            ) : null}
+
+            {profile.bio ? (
+              <p className="mt-3 max-w-md whitespace-pre-wrap text-[13px] leading-relaxed text-ink-200">
+                {profile.bio}
+              </p>
             ) : null}
 
             <div className="mt-4 max-w-md">

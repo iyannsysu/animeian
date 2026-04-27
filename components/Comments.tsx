@@ -236,6 +236,56 @@ export default function Comments({ series }: Props) {
     }
   }
 
+  async function react(id: string, emoji: string) {
+    if (status !== "authenticated") {
+      signIn("google");
+      return;
+    }
+    // optimistic
+    setItems((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        const mine = new Set(c.myReactions ?? []);
+        const counts = { ...(c.reactionCounts ?? {}) };
+        if (mine.has(emoji)) {
+          mine.delete(emoji);
+          counts[emoji] = Math.max(0, (counts[emoji] ?? 0) - 1);
+          if (!counts[emoji]) delete counts[emoji];
+        } else {
+          mine.add(emoji);
+          counts[emoji] = (counts[emoji] ?? 0) + 1;
+        }
+        return { ...c, myReactions: Array.from(mine), reactionCounts: counts };
+      })
+    );
+    try {
+      const res = await fetch(`${url}/react`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, emoji }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        state?: { counts: Record<string, number>; mine: string[] };
+      };
+      if (data.ok && data.state) {
+        setItems((prev) =>
+          prev.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  reactionCounts: data.state!.counts,
+                  myReactions: data.state!.mine,
+                }
+              : c
+          )
+        );
+      }
+    } catch {
+      /* noop */
+    }
+  }
+
   async function togglePin(id: string) {
     const res = await fetch(`${url}/pin`, {
       method: "POST",
@@ -388,6 +438,7 @@ export default function Comments({ series }: Props) {
                 userId={userId}
                 isAdmin={isAdmin}
                 onLike={() => toggleLike(c.id)}
+                onReact={(e) => react(c.id, e)}
                 onPin={() => togglePin(c.id)}
                 onDelete={() => remove(c.id)}
                 onReply={() => {
@@ -434,6 +485,7 @@ export default function Comments({ series }: Props) {
                         isAdmin={isAdmin}
                         compact
                         onLike={() => toggleLike(rc.id)}
+                        onReact={(e) => react(rc.id, e)}
                         onDelete={() => remove(rc.id)}
                         onZoomImage={(src) => setZoomImg(src)}
                       />
@@ -478,6 +530,7 @@ function CommentRow({
   isAdmin,
   compact,
   onLike,
+  onReact,
   onPin,
   onDelete,
   onReply,
@@ -488,6 +541,7 @@ function CommentRow({
   isAdmin: boolean;
   compact?: boolean;
   onLike: () => void;
+  onReact?: (emoji: string) => void;
   onPin?: () => void;
   onDelete: () => void;
   onReply?: () => void;
@@ -573,6 +627,13 @@ function CommentRow({
             />
           </button>
         ) : null}
+        {onReact ? (
+          <ReactionBar
+            counts={c.reactionCounts ?? {}}
+            mine={c.myReactions ?? []}
+            onReact={onReact}
+          />
+        ) : null}
         <div className="mt-1.5 flex items-center gap-3 text-[11px] text-ink-400">
           <button
             type="button"
@@ -646,6 +707,44 @@ function Avatar({
       ) : (
         <span>{initial}</span>
       )}
+    </div>
+  );
+}
+
+const REACTION_EMOJIS = ["👍", "🔥", "😂", "😢", "🎉"] as const;
+
+function ReactionBar({
+  counts,
+  mine,
+  onReact,
+}: {
+  counts: Record<string, number>;
+  mine: string[];
+  onReact: (e: string) => void;
+}) {
+  const mineSet = new Set(mine);
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      {REACTION_EMOJIS.map((e) => {
+        const n = counts[e] ?? 0;
+        const isMine = mineSet.has(e);
+        return (
+          <button
+            key={e}
+            type="button"
+            onClick={() => onReact(e)}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
+              isMine
+                ? "border-indigo-400/60 bg-indigo-500/15 text-indigo-200"
+                : "border-white/10 bg-ink-900/40 text-ink-300 hover:border-white/30"
+            }`}
+            aria-label={`React ${e}`}
+          >
+            <span className="text-sm leading-none">{e}</span>
+            {n > 0 ? <span className="tabular-nums">{n}</span> : null}
+          </button>
+        );
+      })}
     </div>
   );
 }

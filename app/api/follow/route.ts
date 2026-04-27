@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
-import { followUser, unfollowUser, getFollowStats, touchUser } from "@/lib/user";
+import {
+  followUser,
+  unfollowUser,
+  getFollowStats,
+  getStoredUser,
+  resolveDisplayUser,
+  touchUser,
+} from "@/lib/user";
+import { pushNotif } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,5 +47,21 @@ export async function POST(req: Request) {
     action === "unfollow"
       ? await unfollowUser(user.id, target)
       : await followUser(user.id, target);
+
+  // Push notif ke target jika baru follow
+  if (action !== "unfollow" && res.following) {
+    const me = await getStoredUser(user.id);
+    const display = me
+      ? resolveDisplayUser(me)
+      : { name: user.name, image: user.image };
+    await pushNotif(target, {
+      type: "follow",
+      fromId: user.id,
+      fromName: display.name,
+      fromImage: display.image,
+      href: `/u/${user.id}`,
+    });
+  }
+
   return NextResponse.json({ ok: true, ...res });
 }

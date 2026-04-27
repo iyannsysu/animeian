@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import AuthButton from "@/components/AuthButton";
+import NotifBell from "@/components/NotifBell";
 
 const NAV = [
   { href: "/", label: "Home", icon: Home },
@@ -181,6 +182,7 @@ export default function Header() {
           )}
         </button>
 
+        <NotifBell />
         <AuthButton />
       </div>
     </header>

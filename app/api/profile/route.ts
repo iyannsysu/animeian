@@ -59,9 +59,15 @@ export async function GET() {
       imageOverride: stored.imageOverride ?? null,
       displayName: display.name,
       displayImage: display.image,
+      bio: stored.bio ?? null,
+      bannerImage: stored.bannerImage ?? null,
+      showcase: stored.showcase ?? [],
     },
   });
 }
+
+const BIO_MAX = 160;
+const BANNER_MAX_BYTES = 700_000; // banner agak besar tapi tetap dipampatkan klien
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
@@ -71,8 +77,14 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     name?: string | null;
     image?: string | null;
+    bio?: string | null;
+    bannerImage?: string | null;
+    showcase?: string[] | null;
     resetName?: boolean;
     resetImage?: boolean;
+    resetBio?: boolean;
+    resetBanner?: boolean;
+    resetShowcase?: boolean;
   } | null;
 
   // Pastikan record ada dulu (Google name/image fallback)
@@ -83,7 +95,13 @@ export async function POST(req: Request) {
     email: user.email,
   });
 
-  const patch: { name?: string | null; image?: string | null } = {};
+  const patch: {
+    name?: string | null;
+    image?: string | null;
+    bio?: string | null;
+    bannerImage?: string | null;
+    showcase?: string[] | null;
+  } = {};
   if (body?.resetName) patch.name = null;
   else if (typeof body?.name === "string") {
     const trimmed = body.name.trim();
@@ -105,6 +123,39 @@ export async function POST(req: Request) {
     patch.image = body.image;
   }
 
+  if (body?.resetBio) patch.bio = null;
+  else if (typeof body?.bio === "string") {
+    const trimmed = body.bio.trim();
+    if (trimmed.length > BIO_MAX)
+      return NextResponse.json(
+        { ok: false, reason: "bio_too_long" },
+        { status: 400 }
+      );
+    patch.bio = trimmed;
+  }
+
+  if (body?.resetBanner) patch.bannerImage = null;
+  else if (
+    typeof body?.bannerImage === "string" &&
+    body.bannerImage.length > 0
+  ) {
+    if (
+      !body.bannerImage.startsWith("data:image/") ||
+      body.bannerImage.length > BANNER_MAX_BYTES
+    ) {
+      return NextResponse.json(
+        { ok: false, reason: "invalid_banner" },
+        { status: 400 }
+      );
+    }
+    patch.bannerImage = body.bannerImage;
+  }
+
+  if (body?.resetShowcase) patch.showcase = null;
+  else if (Array.isArray(body?.showcase)) {
+    patch.showcase = body.showcase.slice(0, 3).map((s) => String(s));
+  }
+
   if (!Object.keys(patch).length) {
     return NextResponse.json(
       { ok: false, reason: "nothing_to_update" },
@@ -123,5 +174,8 @@ export async function POST(req: Request) {
     ok: true,
     displayName: display.name,
     displayImage: display.image,
+    bio: updated.bio ?? null,
+    bannerImage: updated.bannerImage ?? null,
+    showcase: updated.showcase ?? [],
   });
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { getSessionUser } from "@/lib/session";
-import { incLikesReceived } from "@/lib/user";
+import { getStoredUser, incLikesReceived, resolveDisplayUser } from "@/lib/user";
+import { pushNotif } from "@/lib/notifications";
 import type { Comment } from "@/app/api/comments/[series]/route";
 
 export const runtime = "nodejs";
@@ -15,18 +16,17 @@ function commentsKey(series: string) {
 }
 
 /**
- * Cari userId author dari komentar id `commentId` di series tertentu.
- * Dipakai untuk increment counter likesReceived pada user yang dikomentari.
+ * Cari komen lengkap (untuk authorId + body preview).
  */
-async function findCommentAuthor(
+async function findComment(
   series: string,
   commentId: string
-): Promise<string | null> {
+): Promise<Comment | null> {
   const raws = await kv.lrangeRaw(commentsKey(series), 0, 1000);
   for (const raw of raws) {
     try {
       const c = JSON.parse(raw) as Comment;
-      if (c.id === commentId) return c.userId ?? null;
+      if (c.id === commentId) return c;
     } catch {
       /* noop */
     }
@@ -58,10 +58,24 @@ export async function POST(
   }
   const count = await kv.scard(k);
 
-  // Update likesReceived counter di author
-  const authorId = await findCommentAuthor(series, id);
-  if (authorId && authorId !== user.id) {
-    await incLikesReceived(authorId, isLiked ? -1 : 1);
+  // Update likesReceived counter di author + push notif kalau LIKE baru.
+  const target = await findComment(series, id);
+  if (target?.userId && target.userId !== user.id) {
+    await incLikesReceived(target.userId, isLiked ? -1 : 1);
+    if (!isLiked) {
+      // baru saja like → kirim notif
+      const me = await getStoredUser(user.id);
+      const display = me ? resolveDisplayUser(me) : { name: user.name, image: user.image };
+      await pushNotif(target.userId, {
+        type: "like",
+        fromId: user.id,
+        fromName: display.name,
+        fromImage: display.image,
+        series,
+        body: target.body?.slice(0, 80) ?? "",
+        href: `/anime/${encodeURIComponent(series)}#comments`,
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, liked: !isLiked, count });

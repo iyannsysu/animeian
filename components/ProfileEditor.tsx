@@ -25,6 +25,8 @@ type Props = {
   googleImage: string | null;
   hasNameOverride: boolean;
   hasImageOverride: boolean;
+  initialBio?: string | null;
+  initialBanner?: string | null;
 };
 
 export default function ProfileEditor({
@@ -34,6 +36,8 @@ export default function ProfileEditor({
   googleImage,
   hasNameOverride,
   hasImageOverride,
+  initialBio,
+  initialBanner,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -41,11 +45,18 @@ export default function ProfileEditor({
   const [image, setImage] = useState<string | null>(initialImage);
   const [imageDirty, setImageDirty] = useState(false);
   const [resetImage, setResetImage] = useState(false);
+  const [bio, setBio] = useState(initialBio ?? "");
+  const [bioDirty, setBioDirty] = useState(false);
+  const [banner, setBanner] = useState<string | null>(initialBanner ?? null);
+  const [bannerDirty, setBannerDirty] = useState(false);
+  const [resetBanner, setResetBanner] = useState(false);
+  const [bannerBusy, setBannerBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
 
   function flashOk(msg: string) {
     setOk(msg);
@@ -81,6 +92,35 @@ export default function ProfileEditor({
     setResetImage(true);
   }
 
+  async function pickBanner(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerBusy(true);
+    setErr(null);
+    try {
+      const data = await compressImageToDataUrl(file, {
+        maxWidth: 1280,
+        maxHeight: 480,
+        quality: 0.78,
+        maxBytes: 680_000,
+      });
+      setBanner(data);
+      setBannerDirty(true);
+      setResetBanner(false);
+    } catch {
+      setErr("Gagal memproses banner.");
+    } finally {
+      setBannerBusy(false);
+      if (bannerFileRef.current) bannerFileRef.current.value = "";
+    }
+  }
+
+  function doResetBanner() {
+    setBanner(null);
+    setBannerDirty(false);
+    setResetBanner(true);
+  }
+
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -100,6 +140,16 @@ export default function ProfileEditor({
       } else if (imageDirty && image && image.startsWith("data:image/")) {
         payload.image = image;
       }
+      if (bioDirty) {
+        const trimmedBio = bio.trim();
+        if (!trimmedBio) payload.resetBio = true;
+        else payload.bio = trimmedBio;
+      }
+      if (resetBanner) {
+        payload.resetBanner = true;
+      } else if (bannerDirty && banner && banner.startsWith("data:image/")) {
+        payload.bannerImage = banner;
+      }
       if (!Object.keys(payload).length) {
         setErr("Tidak ada perubahan.");
         setSaving(false);
@@ -117,6 +167,9 @@ export default function ProfileEditor({
         flashOk("Profil tersimpan.");
         setImageDirty(false);
         setResetImage(false);
+        setBioDirty(false);
+        setBannerDirty(false);
+        setResetBanner(false);
         setOpen(false);
         router.refresh();
       }
@@ -235,6 +288,76 @@ export default function ProfileEditor({
           reset.
         </span>
       </label>
+
+      <label className="block">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">
+          Bio
+        </span>
+        <textarea
+          value={bio}
+          onChange={(e) => {
+            setBio(e.target.value);
+            setBioDirty(true);
+          }}
+          maxLength={160}
+          rows={2}
+          placeholder="Cerita singkat tentangmu, anime favorit, dll. Maks 160 char."
+          className="mt-1 w-full resize-none rounded-xl border border-ink-800 bg-ink-950/60 px-3 py-2 text-sm text-ink-100 outline-none focus:border-indigo-400/70"
+        />
+        <span className="mt-1 block text-[11px] text-ink-500">
+          {bio.length}/160
+        </span>
+      </label>
+
+      <div>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-ink-400">
+            Banner kustom
+          </span>
+          {(banner || initialBanner) && !resetBanner ? (
+            <button
+              type="button"
+              onClick={doResetBanner}
+              className="inline-flex items-center gap-1 rounded-full border border-ink-700 bg-ink-950/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-300 hover:border-rose-400/40 hover:text-rose-200"
+            >
+              <RotateCcw className="h-3 w-3" /> Reset
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-1 flex items-stretch gap-2">
+          <button
+            type="button"
+            onClick={() => bannerFileRef.current?.click()}
+            disabled={bannerBusy}
+            className="grid h-20 flex-1 place-items-center overflow-hidden rounded-xl border border-dashed border-ink-700 bg-ink-950/60 text-[11px] text-ink-400 transition hover:border-indigo-400/60 hover:text-indigo-200 disabled:opacity-50"
+          >
+            {bannerBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : banner ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={banner}
+                alt="preview banner"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <Camera className="h-3.5 w-3.5" /> Upload banner
+              </span>
+            )}
+          </button>
+          <input
+            ref={bannerFileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={pickBanner}
+          />
+        </div>
+        <p className="mt-1 text-[11px] text-ink-500">
+          1280×480, dipampatkan ≤680 KB. Kosongkan untuk pakai foto profile blur.
+        </p>
+      </div>
 
       {err ? <p className="text-[12px] text-rose-300">{err}</p> : null}
       {ok ? (
