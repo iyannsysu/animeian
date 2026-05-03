@@ -3,6 +3,7 @@ import VideoPlayer from "@/components/VideoPlayer";
 import EpisodeList from "@/components/EpisodeList";
 import HistoryTracker from "@/components/HistoryTracker";
 import Comments from "@/components/Comments";
+import DownloadSection from "@/components/DownloadSection";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -97,6 +98,7 @@ export default async function WatchPage({ params }: Props) {
             episode={current?.ch ?? ""}
             cover={detail?.cover ?? ""}
           />
+          <DownloadSection stream={stream} />
         </>
       ) : (
         <div className="grid aspect-video w-full place-items-center rounded-xl border border-ink-800 bg-ink-900 text-sm text-ink-300">
