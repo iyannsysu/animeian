@@ -14,6 +14,7 @@ import LevelBadge, {
 } from "@/components/LevelBadge";
 import ActiveStatus from "@/components/ActiveStatus";
 import FollowButton from "@/components/FollowButton";
+import AchievementsPanel from "@/components/AchievementsPanel";
 import {
   CalendarDays,
   Clock,
@@ -190,6 +191,39 @@ export default async function PublicProfilePage({ params }: Props) {
           accent="from-brand-500/20 via-brand-500/5 border-brand-400/30"
         />
       </section>
+
+      {profile.showcase && profile.showcase.length > 0 ? (
+        <section className="rounded-3xl border border-white/10 bg-ink-900/40 p-4 sm:p-6">
+          <h2 className="text-lg font-black tracking-tight">⭐ Anime Favorit</h2>
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+            {profile.showcase.map((it) => (
+              <Link
+                key={it.slug}
+                href={`/anime/${encodeURIComponent(it.slug)}`}
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-ink-950/60 transition hover:border-indigo-400/60"
+              >
+                {it.cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={it.cover}
+                    alt={it.title}
+                    className="aspect-[2/3] w-full object-cover transition group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="aspect-[2/3] w-full bg-ink-800" />
+                )}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2">
+                  <p className="line-clamp-2 text-[11px] font-bold text-white">
+                    {it.title}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <AchievementsPanel userId={profile.id} />
 
       <section className="space-y-3">
         <header className="flex items-center justify-between">

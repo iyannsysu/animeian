@@ -10,6 +10,7 @@ import {
   ChevronRight,
   AlertTriangle,
   PictureInPicture2,
+  Server,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +27,11 @@ type Props = {
 
 const QUALITY_ORDER: StreamQuality[] = ["360p", "480p", "720p", "1080p"];
 
+function isDirectMedia(url: string): boolean {
+  if (!url) return false;
+  return /\.(mp4|m3u8|webm)(\?|$)/i.test(url) || url.includes("storage.");
+}
+
 function pickDefaultQuality(
   available: StreamQuality[],
   isMobile: boolean
@@ -38,12 +44,17 @@ function pickDefaultQuality(
   if (saved && available.includes(saved)) return saved;
   const target: StreamQuality = isMobile ? "480p" : "720p";
   if (available.includes(target)) return target;
-  // fallback: lowest available
   for (const q of QUALITY_ORDER) {
     if (available.includes(q)) return q;
   }
   return null;
 }
+
+type ServerEntry = {
+  link: string;
+  label: string;
+  quality: StreamQuality;
+};
 
 export default function VideoPlayer({
   stream,
@@ -62,25 +73,50 @@ export default function VideoPlayer({
   const [autoNext, setAutoNext] = useState(true);
   const [countdown, setCountdown] = useState<number | null>(null);
 
+  // Flatten all stream entries to figure out whether the upstream is serving
+  // direct video files (legacy sonzaix) or embeddable iframe URLs (sanka).
+  const allEntries = useMemo<ServerEntry[]>(() => {
+    const out: ServerEntry[] = [];
+    QUALITY_ORDER.forEach((q) => {
+      (stream.streams[q] ?? []).forEach((entry) => {
+        out.push({
+          link: entry.link,
+          label: `Server ${out.length + 1}`,
+          quality: q,
+        });
+      });
+    });
+    return out;
+  }, [stream]);
+
+  const directEntries = useMemo(
+    () => allEntries.filter((e) => isDirectMedia(e.link)),
+    [allEntries]
+  );
+  const iframeEntries = useMemo(
+    () => allEntries.filter((e) => !isDirectMedia(e.link)),
+    [allEntries]
+  );
+
+  const useIframe = directEntries.length === 0 && iframeEntries.length > 0;
+
   const available = useMemo<StreamQuality[]>(() => {
     return QUALITY_ORDER.filter((q) => (stream.streams[q]?.length ?? 0) > 0);
   }, [stream]);
 
-  // pick best provider for current quality (lowest `provide` score typically = direct storage)
   const sources = useMemo(() => {
     if (!quality) return [] as string[];
     const entries = stream.streams[quality] ?? [];
-    // Prefer animekita / direct storage links (provide=871), then others
     const sorted = [...entries].sort((a, b) => {
       const score = (p: number) => (p === 871 ? 0 : 1);
       return score(a.provide) - score(b.provide);
     });
-    return sorted
-      .map((e) => e.link)
-      .filter((u) => /\.mp4(\?|$)/i.test(u) || u.includes("storage."));
+    return sorted.map((e) => e.link).filter((u) => isDirectMedia(u));
   }, [stream, quality]);
 
-  // Detect mobile
+  // Iframe state
+  const [activeServer, setActiveServer] = useState<number>(0);
+
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
     setIsMobile(mq.matches);
@@ -89,16 +125,15 @@ export default function VideoPlayer({
     return () => mq.removeEventListener?.("change", onChange);
   }, []);
 
-  // Initialize quality once
   useEffect(() => {
     if (quality) return;
     const q = pickDefaultQuality(available, isMobile);
     if (q) setQuality(q);
   }, [available, isMobile, quality]);
 
-  // Persist saved time when switching quality
   const lastTimeRef = useRef(0);
   useEffect(() => {
+    if (useIframe) return;
     const v = videoRef.current;
     if (!v) return;
     const onTime = () => {
@@ -106,10 +141,10 @@ export default function VideoPlayer({
     };
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
-  }, [quality]);
+  }, [quality, useIframe]);
 
-  // When quality changes, re-attach source and seek to previous time
   useEffect(() => {
+    if (useIframe) return;
     const v = videoRef.current;
     if (!v || !sources.length) return;
     const savedTime = lastTimeRef.current;
@@ -130,7 +165,7 @@ export default function VideoPlayer({
     };
     v.addEventListener("loadedmetadata", onLoaded, { once: true });
     return () => v.removeEventListener("loadedmetadata", onLoaded);
-  }, [sources]);
+  }, [sources, useIframe]);
 
   const onQualityChange = (q: StreamQuality) => {
     setQuality(q);
@@ -142,8 +177,9 @@ export default function VideoPlayer({
     }
   };
 
-  // Auto-play next episode dengan countdown 5 detik saat video selesai
+  // Auto-next is only meaningful for direct video; iframes don't expose `ended`.
   useEffect(() => {
+    if (useIframe) return;
     const v = videoRef.current;
     if (!v) return;
     const onEnded = () => {
@@ -152,7 +188,7 @@ export default function VideoPlayer({
     };
     v.addEventListener("ended", onEnded);
     return () => v.removeEventListener("ended", onEnded);
-  }, [autoNext, nextHref]);
+  }, [autoNext, nextHref, useIframe]);
 
   useEffect(() => {
     if (countdown === null) return;
@@ -165,7 +201,6 @@ export default function VideoPlayer({
     return () => clearTimeout(t);
   }, [countdown, nextHref, router]);
 
-  // Media Session API: judul + cover di lock screen, tombol prev/next/play/pause
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("mediaSession" in navigator)) return;
@@ -181,12 +216,14 @@ export default function VideoPlayer({
             ]
           : [],
       });
-      navigator.mediaSession.setActionHandler("play", () =>
-        videoRef.current?.play().catch(() => {})
-      );
-      navigator.mediaSession.setActionHandler("pause", () =>
-        videoRef.current?.pause()
-      );
+      if (!useIframe) {
+        navigator.mediaSession.setActionHandler("play", () =>
+          videoRef.current?.play().catch(() => {})
+        );
+        navigator.mediaSession.setActionHandler("pause", () =>
+          videoRef.current?.pause()
+        );
+      }
       navigator.mediaSession.setActionHandler("previoustrack", () => {
         if (prevHref) router.push(prevHref);
       });
@@ -196,7 +233,7 @@ export default function VideoPlayer({
     } catch {
       /* noop */
     }
-  }, [title, poster, prevHref, nextHref, router]);
+  }, [title, poster, prevHref, nextHref, router, useIframe]);
 
   async function togglePip() {
     const v = videoRef.current;
@@ -230,6 +267,72 @@ export default function VideoPlayer({
     );
   }
 
+  // ---------- Iframe mode (sankavollerei embed players) ----------
+  if (useIframe) {
+    const current = iframeEntries[activeServer] ?? iframeEntries[0];
+    return (
+      <div className="space-y-3">
+        <div className="relative overflow-hidden rounded-xl border border-ink-800 bg-black">
+          <iframe
+            key={current?.link ?? "iframe"}
+            src={current?.link}
+            title={title}
+            className="aspect-video w-full bg-black"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-ink-900/60 px-3 py-1.5 text-xs text-ink-200">
+            <Server className="h-3.5 w-3.5 text-indigo-300" />
+            Pilih server
+          </div>
+          {iframeEntries.map((e, idx) => {
+            const active = idx === activeServer;
+            return (
+              <button
+                key={`${e.link}-${idx}`}
+                type="button"
+                onClick={() => setActiveServer(idx)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  active
+                    ? "border-fuchsia-400/60 bg-fuchsia-500/15 text-fuchsia-100"
+                    : "border-white/10 bg-ink-900/60 text-ink-200 hover:border-indigo-400/60 hover:text-white"
+                }`}
+              >
+                {e.label}
+              </button>
+            );
+          })}
+
+          <div className="ml-auto flex items-center gap-2">
+            {prevHref ? (
+              <Link href={prevHref} className="btn-ghost text-xs">
+                <ChevronLeft className="h-4 w-4" /> Sebelumnya
+              </Link>
+            ) : null}
+            {nextHref ? (
+              <Link href={nextHref} className="btn-primary text-xs">
+                Episode berikutnya <ChevronRight className="h-4 w-4" />
+              </Link>
+            ) : null}
+          </div>
+        </div>
+
+        <p className="text-xs text-ink-500">
+          Tips: jika satu server lambat / error, pilih server lain di atas.
+          Kualitas diatur dari player tiap server.
+        </p>
+
+        <h1 className="sr-only">{title}</h1>
+      </div>
+    );
+  }
+
+  // ---------- Native <video> mode (legacy direct mp4 sources) ----------
   return (
     <div className="space-y-3">
       <div className="relative overflow-hidden rounded-xl border border-ink-800 bg-black">

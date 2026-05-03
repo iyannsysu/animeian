@@ -29,6 +29,7 @@ import LevelBadge, {
   VerifiedBadge,
 } from "@/components/LevelBadge";
 import { compressImageToDataUrl } from "@/lib/clientImage";
+import MentionTextarea from "@/components/MentionTextarea";
 
 type Props = { series: string };
 
@@ -47,8 +48,20 @@ export default function Comments({ series }: Props) {
   const [imageBusy, setImageBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
+  // mentions: setelah pick autocomplete, simpan { name → userId }
+  const [mentions, setMentions] = useState<Map<string, string>>(new Map());
 
   const url = `/api/comments/${encodeURIComponent(series)}`;
+
+  function extractMentionIds(text: string): string[] {
+    const ids = new Set<string>();
+    // Cari semua @<name> token (huruf, digit, underscore, spasi sampai 30 char), match ke peta mentions
+    mentions.forEach((id, name) => {
+      const re = new RegExp(`@${name.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\b`, "i");
+      if (re.test(text)) ids.add(id);
+    });
+    return Array.from(ids);
+  }
 
   useEffect(() => {
     let cancel = false;
@@ -99,10 +112,16 @@ export default function Comments({ series }: Props) {
     parentId: string | null,
     img?: string | null
   ) {
+    const mentionIds = extractMentionIds(text);
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ body: text, parentId, imageData: img ?? undefined }),
+      body: JSON.stringify({
+        body: text,
+        parentId,
+        imageData: img ?? undefined,
+        mentionIds,
+      }),
     });
     const data = (await res.json()) as {
       ok: boolean;
@@ -324,14 +343,21 @@ export default function Comments({ series }: Props) {
               image={session?.user?.image ?? null}
             />
             <div className="flex-1">
-              <textarea
+              <MentionTextarea
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
+                onChange={setValue}
+                onMention={(name, id) =>
+                  setMentions((m) => {
+                    const next = new Map(m);
+                    next.set(name, id);
+                    return next;
+                  })
+                }
                 rows={2}
                 maxLength={1000}
                 placeholder={`Tulis komentar sebagai ${
                   session?.user?.name ?? "pengguna"
-                }…`}
+                }… (mention @nama untuk tag)`}
                 className="w-full resize-none rounded-xl border border-ink-800 bg-ink-950/60 p-2.5 text-sm text-ink-100 outline-none focus:border-brand-500/70"
               />
               {imageData ? (
@@ -450,9 +476,16 @@ export default function Comments({ series }: Props) {
               {/* Reply form */}
               {replyTo === c.id && status === "authenticated" ? (
                 <div className="mt-3 flex gap-2 pl-10">
-                  <textarea
+                  <MentionTextarea
                     value={replyValue}
-                    onChange={(e) => setReplyValue(e.target.value)}
+                    onChange={setReplyValue}
+                    onMention={(name, id) =>
+                      setMentions((m) => {
+                        const next = new Map(m);
+                        next.set(name, id);
+                        return next;
+                      })
+                    }
                     rows={2}
                     maxLength={1000}
                     placeholder={`Balas ${c.userName}…`}

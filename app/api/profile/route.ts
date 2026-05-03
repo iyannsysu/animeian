@@ -5,6 +5,7 @@ import {
   resolveDisplayUser,
   touchUser,
   updateUserOverrides,
+  type ShowcaseItem,
 } from "@/lib/user";
 
 export const runtime = "nodejs";
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
     image?: string | null;
     bio?: string | null;
     bannerImage?: string | null;
-    showcase?: string[] | null;
+    showcase?: ShowcaseItem[] | null;
     resetName?: boolean;
     resetImage?: boolean;
     resetBio?: boolean;
@@ -100,7 +101,7 @@ export async function POST(req: Request) {
     image?: string | null;
     bio?: string | null;
     bannerImage?: string | null;
-    showcase?: string[] | null;
+    showcase?: ShowcaseItem[] | null;
   } = {};
   if (body?.resetName) patch.name = null;
   else if (typeof body?.name === "string") {
@@ -153,7 +154,14 @@ export async function POST(req: Request) {
 
   if (body?.resetShowcase) patch.showcase = null;
   else if (Array.isArray(body?.showcase)) {
-    patch.showcase = body.showcase.slice(0, 3).map((s) => String(s));
+    patch.showcase = body.showcase
+      .slice(0, 3)
+      .filter(
+        (s): s is ShowcaseItem =>
+          !!s &&
+          typeof (s as ShowcaseItem).slug === "string" &&
+          typeof (s as ShowcaseItem).title === "string"
+      );
   }
 
   if (!Object.keys(patch).length) {

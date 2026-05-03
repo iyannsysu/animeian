@@ -22,6 +22,8 @@ import LevelBadge, {
   VerifiedBadge,
 } from "@/components/LevelBadge";
 import ProfileEditor from "@/components/ProfileEditor";
+import AchievementsPanel from "@/components/AchievementsPanel";
+import ShowcaseEditor from "@/components/ShowcaseEditor";
 import ActiveStatus from "@/components/ActiveStatus";
 import ProfileHistoryList from "@/components/ProfileHistoryList";
 import AdminSelfVerifyButton from "@/components/AdminSelfVerifyButton";
@@ -387,6 +389,12 @@ export default async function ProfilePage() {
         initialBio={stored?.bio ?? null}
         initialBanner={stored?.bannerImage ?? null}
       />
+
+      {/* Achievement / badge */}
+      <AchievementsPanel />
+
+      {/* Showcase 3 anime favorit */}
+      <ShowcaseEditor initial={stored?.showcase ?? []} />
 
       {/* History */}
       <section>

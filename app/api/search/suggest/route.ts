@@ -4,7 +4,7 @@ import { getAnimeList } from "@/lib/api";
 export const runtime = "nodejs";
 export const revalidate = 1800;
 
-type Item = { id: string; judul: string; url: string };
+type Item = { id: string; judul: string; url: string; cover?: string };
 
 let cache: { items: Item[]; ts: number } | null = null;
 

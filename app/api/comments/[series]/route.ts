@@ -155,6 +155,7 @@ export async function POST(
     body?: string;
     parentId?: string | null;
     imageData?: string;
+    mentionIds?: string[];
   } | null;
   const text = (body?.body ?? "").trim();
   const imageRaw = (body?.imageData ?? "").trim();
@@ -209,6 +210,25 @@ export async function POST(
     createdAt: entry.createdAt,
   });
   await kv.ltrim(userKey(user.id), 0, 200);
+
+  // Mention notif → push ke setiap user yang di-mention
+  const mentions = Array.isArray(body?.mentionIds)
+    ? Array.from(
+        new Set(body!.mentionIds!.filter((s): s is string => typeof s === "string" && !!s.trim()))
+      ).slice(0, 8)
+    : [];
+  for (const targetId of mentions) {
+    if (targetId === user.id) continue;
+    await pushNotif(targetId, {
+      type: "mention",
+      fromId: user.id,
+      fromName: entry.userName,
+      fromImage: entry.userImage,
+      series,
+      body: text.slice(0, 100),
+      href: `/anime/${encodeURIComponent(series)}#comments`,
+    });
+  }
 
   // Reply notif → push ke author komentar parent
   if (entry.parentId) {

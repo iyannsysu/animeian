@@ -27,8 +27,14 @@ export type StoredUser = {
   bio?: string;
   /** Banner cover kustom (data URL JPEG/WEBP, dipampatkan klien). */
   bannerImage?: string;
-  /** Up to 3 anime favorit yang ditampilkan di profile (slug). */
-  showcase?: string[];
+  /** Up to 3 anime favorit yang ditampilkan di profile. */
+  showcase?: ShowcaseItem[];
+};
+
+export type ShowcaseItem = {
+  slug: string;
+  title: string;
+  cover: string;
 };
 
 function userKey(id: string) {
@@ -115,7 +121,7 @@ export async function updateUserOverrides(
     image?: string | null;
     bio?: string | null;
     bannerImage?: string | null;
-    showcase?: string[] | null;
+    showcase?: ShowcaseItem[] | null;
   }
 ): Promise<StoredUser | null> {
   if (!kv.available) return null;
@@ -155,7 +161,18 @@ export async function updateUserOverrides(
       delete next.showcase;
     } else {
       next.showcase = patch.showcase
-        .filter((s) => typeof s === "string" && s.trim().length > 0)
+        .filter(
+          (s): s is ShowcaseItem =>
+            !!s &&
+            typeof s.slug === "string" &&
+            s.slug.trim().length > 0 &&
+            typeof s.title === "string"
+        )
+        .map((s) => ({
+          slug: s.slug.trim().slice(0, 200),
+          title: s.title.trim().slice(0, 200),
+          cover: typeof s.cover === "string" ? s.cover.slice(0, 500) : "",
+        }))
         .slice(0, 3);
     }
   }
@@ -334,7 +351,7 @@ export type PublicProfile = {
   verified: boolean;
   bio: string | null;
   bannerImage: string | null;
-  showcase: string[];
+  showcase: ShowcaseItem[];
 };
 
 export async function getPublicProfile(
