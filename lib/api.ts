@@ -298,8 +298,9 @@ export async function getHomePool(pages = 3): Promise<HomeResponse["data"]> {
   return out;
 }
 
-export async function getOngoing(): Promise<OngoingResponse> {
-  const r = await apiFetch<SankaUnknown>(`/ongoing`, { revalidate: 600 });
+export async function getOngoing(page = 1): Promise<OngoingResponse> {
+  const path = page > 1 ? `/ongoing?page=${page}` : `/ongoing`;
+  const r = await apiFetch<SankaUnknown>(path, { revalidate: 600 });
   const list = asArray<SankaUnknown>(pick(r, "animes", "data"));
   return { data: list.map((s, i) => adaptOngoing(s, i)) };
 }
