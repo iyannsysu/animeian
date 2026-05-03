@@ -1,5 +1,6 @@
 import { getOngoing } from "@/lib/api";
-import AnimeGrid from "@/components/AnimeGrid";
+import { getViewCounts } from "@/lib/views";
+import OngoingInfinite from "@/components/OngoingInfinite";
 import { Flame, Sparkles } from "lucide-react";
 
 export const revalidate = 300;
@@ -12,12 +13,13 @@ export const metadata = {
 export default async function OngoingPage() {
   let items: Awaited<ReturnType<typeof getOngoing>>["data"] = [];
   try {
-    items = (await getOngoing()).data ?? [];
+    items = (await getOngoing(1)).data ?? [];
   } catch {
     items = [];
   }
 
-  const gridItems = items.map((it) => ({
+  const counts = await getViewCounts(items.map((i) => i.url));
+  const initialItems = items.map((it) => ({
     id: it.id,
     url: it.url,
     judul: it.judul,
@@ -25,6 +27,7 @@ export default async function OngoingPage() {
     lastch: it.lastch,
     lastup: it.lastup,
     type: it.type,
+    views: counts[it.url] ?? 0,
   }));
 
   return (
@@ -40,17 +43,16 @@ export default async function OngoingPage() {
             Ongoing Series
           </h1>
           <p className="mt-3 max-w-xl text-sm text-ink-300 sm:text-base">
-            Semua anime yang sedang tayang — update tiap minggu, langsung dari
-            sumber terbaru.
+            Semua anime yang sedang tayang — scroll ke bawah untuk muat lebih banyak.
           </p>
           <p className="mt-3 inline-flex items-center gap-2 text-xs text-ink-400">
             <Sparkles className="h-3 w-3 text-indigo-300" />
-            {items.length} seri ditemukan
+            Update tiap minggu, langsung dari sumber terbaru.
           </p>
         </div>
       </section>
 
-      <AnimeGrid items={gridItems} priorityCount={6} />
+      <OngoingInfinite initialItems={initialItems} initialPage={1} />
     </div>
   );
 }
