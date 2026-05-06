@@ -27,9 +27,12 @@ function isDirectVideo(url: string) {
 }
 
 export default function DownloadSection({ stream }: { stream: StreamItem }) {
-  const reso = stream.reso ?? [];
-  const allEmpty = reso.every((q) => (stream.streams[q]?.length ?? 0) === 0);
-  if (allEmpty) return null;
+  // Prefer the dedicated `downloads` buckets (samehadaku file-host mirrors).
+  // Fall back to `streams` for older payloads / animasu where embed links
+  // doubled as both player and downloadable target.
+  const buckets = stream.downloads ?? stream.streams;
+  const qualities = QUALITIES.filter((q) => (buckets[q]?.length ?? 0) > 0);
+  if (!qualities.length) return null;
 
   return (
     <section className="rounded-2xl border border-ink-800/70 bg-gradient-to-br from-ink-900/60 to-ink-950/60 p-5">
@@ -37,7 +40,7 @@ export default function DownloadSection({ stream }: { stream: StreamItem }) {
         <Download className="h-5 w-5 text-emerald-300" />
         <h2 className="text-lg font-bold text-white">Download Episode</h2>
         <span className="ml-auto rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-200">
-          {reso.length} kualitas
+          {qualities.length} kualitas
         </span>
       </header>
 
@@ -48,9 +51,9 @@ export default function DownloadSection({ stream }: { stream: StreamItem }) {
       </p>
 
       <div className="space-y-3">
-        {QUALITIES.filter((q) => (stream.streams[q]?.length ?? 0) > 0).map(
+        {qualities.map(
           (q) => {
-            const links = stream.streams[q] ?? [];
+            const links = buckets[q] ?? [];
             return (
               <div
                 key={q}
