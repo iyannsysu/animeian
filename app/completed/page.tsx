@@ -1,5 +1,6 @@
-import { getHomePool } from "@/lib/api";
-import AnimeGrid from "@/components/AnimeGrid";
+import { getCompletedPage } from "@/lib/api";
+import { getViewCounts } from "@/lib/views";
+import CompletedInfinite from "@/components/CompletedInfinite";
 import { CheckCircle2, Sparkles } from "lucide-react";
 
 export const revalidate = 600;
@@ -10,12 +11,10 @@ export const metadata = {
 };
 
 export default async function CompletedPage() {
-  const pool = await getHomePool(6);
-  const completed = pool.filter(
-    (it) => (it.status ?? "").toLowerCase() === "completed"
-  );
+  const r = await getCompletedPage(1);
+  const counts = await getViewCounts(r.items.map((i) => i.url));
 
-  const gridItems = completed.map((it) => ({
+  const initialItems = r.items.map((it) => ({
     id: it.id,
     url: it.url,
     judul: it.judul,
@@ -24,6 +23,7 @@ export default async function CompletedPage() {
     lastup: it.rilis || it.lastup,
     type: it.type,
     score: it.score,
+    views: counts[it.url] ?? 0,
   }));
 
   return (
@@ -40,16 +40,20 @@ export default async function CompletedPage() {
           </h1>
           <p className="mt-3 max-w-xl text-sm text-ink-300 sm:text-base">
             Anime yang sudah tamat, bisa langsung ditonton dari episode 1 sampai
-            akhir tanpa nunggu.
+            akhir tanpa nunggu. Scroll ke bawah untuk muat lebih banyak.
           </p>
           <p className="mt-3 inline-flex items-center gap-2 text-xs text-ink-400">
             <Sparkles className="h-3 w-3 text-emerald-300" />
-            {completed.length} seri ditemukan
+            Katalog A-Z penuh, akan terus muat saat di-scroll
           </p>
         </div>
       </section>
 
-      <AnimeGrid items={gridItems} priorityCount={6} />
+      <CompletedInfinite
+        initialItems={initialItems}
+        initialPage={1}
+        initialHasMore={r.hasMore}
+      />
     </div>
   );
 }

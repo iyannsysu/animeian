@@ -1,6 +1,7 @@
 import { getAnimeList } from "@/lib/api";
 import Link from "next/link";
 import SectionHeader from "@/components/SectionHeader";
+import LetterExpand from "@/components/LetterExpand";
 import { ArrowDownAZ, ArrowUpAZ, Search } from "lucide-react";
 
 export const revalidate = 3600;
@@ -158,6 +159,9 @@ export default async function AnimeListPage({
                   </li>
                 ))}
               </ul>
+              {!q && /^[A-Z]$/.test(letterKey) ? (
+                <LetterExpand letter={letterKey} />
+              ) : null}
             </section>
           ))}
         </div>
