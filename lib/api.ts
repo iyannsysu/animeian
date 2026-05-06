@@ -336,17 +336,51 @@ export async function getJadwal(): Promise<JadwalResponse> {
   }
 }
 
+// Tunable: how many pages to walk per letter when building the static A-Z
+// catalog. Each upstream page is ~30 anime, so 2 pages ≈ 60 per letter (capped
+// by the upstream `pagination.hasNext` flag). Kept small to keep the initial
+// SSR HTML reasonable; the client-side "Lihat lebih banyak" button can pull
+// further pages on demand via `getAnimeListLetter`.
+const ANIME_LIST_MAX_PAGES_PER_LETTER = 2;
+const ANIME_LIST_COMPLETED_MAX_PAGES_PER_LETTER = 4;
+
+async function fetchLetterPage(letter: string, page: number) {
+  return apiFetch<SankaUnknown>(
+    `/animelist?letter=${letter}&page=${page}`,
+    { revalidate: 3600 }
+  );
+}
+
+function hasNextPage(payload: SankaUnknown): boolean {
+  const pag = payload?.pagination as SankaUnknown | undefined;
+  if (!pag || typeof pag !== "object") return false;
+  return Boolean(pag.hasNext);
+}
+
+async function collectLetter(letter: string, maxPages: number) {
+  const items: SankaUnknown[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    try {
+      const payload = await fetchLetterPage(letter, page);
+      const list = asArray<SankaUnknown>(pick(payload, "animes", "data"));
+      if (!list.length) break;
+      items.push(...list);
+      if (!hasNextPage(payload)) break;
+    } catch {
+      break;
+    }
+  }
+  return items;
+}
+
 export async function getAnimeList(): Promise<AnimeListResponse> {
-  // Sankavollerei `/animelist?letter=A&page=1` returns `{animes: []}` per
-  // letter. We collect a single page per letter and group them. This keeps the
-  // payload reasonable while still matching the existing internal shape.
+  // Sankavollerei `/animelist?letter=A&page=1` returns `{animes: [...],
+  // pagination: { hasNext, ... }}`. We walk pages per letter until hasNext is
+  // false (or hit the safety cap) and dedupe by slug to build a much fuller
+  // A-Z catalog than the previous "page 1 only" implementation.
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   const responses = await Promise.allSettled(
-    letters.map((l) =>
-      apiFetch<SankaUnknown>(`/animelist?letter=${l}&page=1`, {
-        revalidate: 3600,
-      })
-    )
+    letters.map((l) => collectLetter(l, ANIME_LIST_MAX_PAGES_PER_LETTER))
   );
   const out: AnimeListResponse = {};
   responses.forEach((r, i) => {
@@ -355,13 +389,76 @@ export async function getAnimeList(): Promise<AnimeListResponse> {
       out[letter] = [];
       return;
     }
-    const list = asArray<SankaUnknown>(pick(r.value, "animes", "data"));
-    out[letter] = list.map((s) => {
+    const seen = new Set<string>();
+    const merged: AnimeListResponse[string] = [];
+    for (const s of r.value) {
       const c = adaptCard(s);
-      return { id: c.id != null ? String(c.id) : c.url, judul: c.judul, url: c.url, cover: c.cover };
-    });
+      if (!c.url || seen.has(c.url)) continue;
+      seen.add(c.url);
+      merged.push({
+        id: c.id != null ? String(c.id) : c.url,
+        judul: c.judul,
+        url: c.url,
+        cover: c.cover,
+      });
+    }
+    out[letter] = merged;
   });
   return out;
+}
+
+export async function getAnimeListLetter(
+  letter: string,
+  page: number
+): Promise<{ items: AnimeCardItem[]; hasNext: boolean }> {
+  // Single-letter / single-page fetch used by the client-side "Lihat lebih
+  // banyak" button on the anime list page. Returns adapted cards plus the
+  // upstream `hasNext` flag so the UI knows when to stop paging.
+  try {
+    const payload = await fetchLetterPage(letter, page);
+    const list = asArray<SankaUnknown>(pick(payload, "animes", "data"));
+    return {
+      items: list.map(adaptCard),
+      hasNext: hasNextPage(payload),
+    };
+  } catch {
+    return { items: [], hasNext: false };
+  }
+}
+
+export async function getCompletedPage(page: number): Promise<{
+  items: AnimeCardItem[];
+  hasMore: boolean;
+}> {
+  // Completed/finished anime: we walk the full alphabetical catalog and
+  // filter to status == "Selesai". Each "page" of our infinite scroll maps to
+  // one upstream letter page, but we batch a small number of letters per
+  // call to keep payloads chunky enough that scrolling feels productive.
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const LETTERS_PER_PAGE = 2;
+  const startIdx = (page - 1) * LETTERS_PER_PAGE;
+  const slice = letters.slice(startIdx, startIdx + LETTERS_PER_PAGE);
+  if (!slice.length) return { items: [], hasMore: false };
+  const responses = await Promise.allSettled(
+    slice.map((l) => collectLetter(l, ANIME_LIST_COMPLETED_MAX_PAGES_PER_LETTER))
+  );
+  const seen = new Set<string>();
+  const items: AnimeCardItem[] = [];
+  for (const r of responses) {
+    if (r.status !== "fulfilled") continue;
+    for (const raw of r.value) {
+      const c = adaptCard(raw);
+      const status = (c.status ?? "").toLowerCase();
+      if (!status.includes("selesai") && !status.includes("complet")) continue;
+      if (!c.url || seen.has(c.url)) continue;
+      seen.add(c.url);
+      items.push(c);
+    }
+  }
+  return {
+    items,
+    hasMore: startIdx + LETTERS_PER_PAGE < letters.length,
+  };
 }
 
 export async function getDetail(series: string): Promise<DetailResponse> {
