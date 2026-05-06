@@ -36,11 +36,12 @@ export async function GET(req: Request) {
       },
     });
     const text = await res.text();
+    const full = searchParams.get("full") === "1";
     return NextResponse.json({
       ok: res.ok,
       status: res.status,
       url,
-      sample: text.slice(0, 2000),
+      sample: full ? text : text.slice(0, 2000),
     });
   } catch (e) {
     return NextResponse.json({
