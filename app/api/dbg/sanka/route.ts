@@ -6,10 +6,27 @@ export const dynamic = "force-dynamic";
 const BASE =
   process.env.ANIME_API_BASE ?? "https://www.sankavollerei.com/anime/animasu";
 
+const ALLOWED_BASES = new Set([
+  BASE,
+  "https://www.sankavollerei.com/anime/animasu",
+  "https://www.sankavollerei.com/anime/samehadaku",
+  "https://www.sankavollerei.com/anime/otakudesu",
+  "https://www.sankavollerei.com/anime/nimegami",
+  "https://www.sankavollerei.com/anime",
+]);
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const path = searchParams.get("path") ?? "/ongoing";
-  const url = `${BASE}${path}`;
+  const baseOverride = searchParams.get("base");
+  if (baseOverride && !ALLOWED_BASES.has(baseOverride)) {
+    return NextResponse.json(
+      { ok: false, error: "Base URL not allowed" },
+      { status: 400 }
+    );
+  }
+  const base = baseOverride ?? BASE;
+  const url = `${base}${path}`;
   try {
     const res = await fetch(url, {
       cache: "no-store",
@@ -19,11 +36,12 @@ export async function GET(req: Request) {
       },
     });
     const text = await res.text();
+    const full = searchParams.get("full") === "1";
     return NextResponse.json({
       ok: res.ok,
       status: res.status,
       url,
-      sample: text.slice(0, 2000),
+      sample: full ? text : text.slice(0, 2000),
     });
   } catch (e) {
     return NextResponse.json({
