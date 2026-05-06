@@ -106,7 +106,11 @@ export type StreamLink = {
 export type StreamItem = {
   episode_id: number;
   reso: StreamQuality[];
+  // Playable streams (iframe embeds or direct video). Used by VideoPlayer.
   streams: Record<StreamQuality, StreamLink[]>;
+  // Optional download mirrors (host pages like Gofile/Pixeldrain/...).
+  // Used by DownloadSection. Falls back to `streams` when not provided.
+  downloads?: Record<StreamQuality, StreamLink[]>;
   resoSize: Record<StreamQuality, string | null>;
 };
 

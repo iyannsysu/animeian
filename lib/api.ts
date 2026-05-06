@@ -333,14 +333,25 @@ function inferQuality(entry: SankaUnknown, name: string): StreamQuality {
 function adaptStream(payload: SankaUnknown): StreamItem | null {
   // Two upstream shapes:
   //   - Animasu: top-level `streams` / `mirror` / `servers` array of
-  //     `{url, quality, name}`. We just bucket by quality.
+  //     `{url, quality, name}`. Each entry IS a playable iframe URL.
   //   - Samehadaku: { defaultStreamingUrl, server.qualities[].serverList[],
-  //     downloadUrl.formats[].qualities[].urls[] }. We promote the default URL
-  //     as the primary playable, then flatten download URLs into quality
-  //     buckets so DownloadSection has multi-host options to offer.
+  //     downloadUrl.formats[].qualities[].urls[] }. Only `defaultStreamingUrl`
+  //     is directly playable without an extra `/server/{id}` resolve call;
+  //     entries under `downloadUrl` are file-host pages (Gofile/Pixeldrain/...)
+  //     for downloading, NOT for streaming.
+  //
+  // We keep streaming and download URLs in *separate* buckets so that
+  // VideoPlayer never accidentally picks a Gofile/Pixeldrain link as the
+  // active iframe (which is what was breaking samehadaku playback).
   const data = unwrap(payload);
 
-  const buckets: Record<StreamQuality, StreamLink[]> = {
+  const streamBuckets: Record<StreamQuality, StreamLink[]> = {
+    "360p": [],
+    "480p": [],
+    "720p": [],
+    "1080p": [],
+  };
+  const downloadBuckets: Record<StreamQuality, StreamLink[]> = {
     "360p": [],
     "480p": [],
     "720p": [],
@@ -348,9 +359,13 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
   };
 
   let provideId = 0;
-  const pushLink = (q: StreamQuality, link: string) => {
+  const pushTo = (
+    target: Record<StreamQuality, StreamLink[]>,
+    q: StreamQuality,
+    link: string
+  ) => {
     if (!link) return;
-    buckets[q].push({
+    target[q].push({
       link,
       provide: provideId,
       id: provideId,
@@ -360,7 +375,7 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
     provideId++;
   };
 
-  // Path A: animasu-style flat streams array.
+  // Path A: animasu-style flat streams array (each entry is a playable embed).
   const rawStreams = asArray<SankaUnknown>(
     pick(data, "streams", "stream", "mirror", "mirrors", "servers")
   );
@@ -370,27 +385,21 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
     const name = asString(
       pick(entry, "name", "label", "server", "provider", "title")
     );
-    pushLink(inferQuality(entry, name), link);
+    pushTo(streamBuckets, inferQuality(entry, name), link);
   });
 
-  // Path B: samehadaku-style defaultStreamingUrl (always the playable iframe).
+  // Path B: samehadaku-style defaultStreamingUrl (the only playable iframe we
+  // can use without an extra `/server/{id}` resolve round-trip).
   const defaultUrl = asString(
     pick(data, "defaultStreamingUrl", "default_streaming_url")
   );
   if (defaultUrl) {
-    // Make it the very first 720p entry so VideoPlayer picks it as default.
-    buckets["720p"].unshift({
-      link: defaultUrl,
-      provide: 9000,
-      id: 9000,
-      reso: "720p",
-      size_kb: null,
-    });
+    pushTo(streamBuckets, "720p", defaultUrl);
   }
 
-  // Path B (cont.): downloadUrl.formats[].qualities[].urls[] — flatten as
-  // download links bucketed by quality. Format label (MKV/MP4/x265) is appended
-  // implicitly via host name in DownloadSection.
+  // Path B (cont.): downloadUrl.formats[].qualities[].urls[] — these are
+  // file-host pages, NOT players. Bucket them into `downloadBuckets` so
+  // DownloadSection can render them, but keep them out of the player.
   const dl = (data.downloadUrl ?? data.download_url ?? data.download) as
     | SankaUnknown
     | undefined;
@@ -404,16 +413,21 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
         const urls = asArray<SankaUnknown>(pick(qe, "urls", "links"));
         urls.forEach((u) => {
           const link = asString(pick(u, "url", "link", "href"));
-          pushLink(q, link);
+          pushTo(downloadBuckets, q, link);
         });
       });
     });
   }
 
-  const reso = (Object.keys(buckets) as StreamQuality[]).filter(
-    (q) => buckets[q].length > 0
+  const reso = (Object.keys(streamBuckets) as StreamQuality[]).filter(
+    (q) => streamBuckets[q].length > 0
   );
-  if (!reso.length) return null;
+  // If we have download mirrors but no streams, surface the downloads anyway —
+  // user can at least open the file-host page manually.
+  const downloadReso = (Object.keys(downloadBuckets) as StreamQuality[]).filter(
+    (q) => downloadBuckets[q].length > 0
+  );
+  if (!reso.length && !downloadReso.length) return null;
 
   const resoSize: Record<StreamQuality, string | null> = {
     "360p": null,
@@ -424,8 +438,9 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
 
   return {
     episode_id: 0,
-    reso,
-    streams: buckets,
+    reso: reso.length ? reso : downloadReso,
+    streams: streamBuckets,
+    downloads: downloadBuckets,
     resoSize,
   };
 }
