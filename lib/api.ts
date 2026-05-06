@@ -16,12 +16,21 @@ import type {
   StreamResponse,
 } from "./types";
 
-// Sankavollerei is the new upstream after the previous host (api.sonzaix.indevs.in)
+// Sankavollerei is the upstream after the previous host (api.sonzaix.indevs.in)
 // went offline. Each scraping source lives under its own subpath, e.g.
-// `/anime/animasu`, `/anime/otakudesu`, `/anime/samehadaku`. The default is
+// `/anime/animasu`, `/anime/samehadaku`, `/anime/otakudesu`. The default is
 // configurable via `ANIME_API_BASE` so we can swap providers without redeploy.
 export const API_BASE =
-  process.env.ANIME_API_BASE ?? "https://www.sankavollerei.com/anime/animasu";
+  process.env.ANIME_API_BASE ?? "https://www.sankavollerei.com/anime/samehadaku";
+
+// Sub-provider name extracted from API_BASE ("samehadaku", "animasu", ...).
+// Drives endpoint-path differences: e.g. samehadaku uses `/anime/{slug}` for
+// detail, animasu uses `/detail/{slug}`; samehadaku has `/completed` directly,
+// animasu only has per-letter `/animelist?letter=…&page=…`.
+export const PROVIDER: string = (() => {
+  const m = API_BASE.match(/\/anime\/([^/?#]+)/);
+  return (m?.[1] ?? "animasu").toLowerCase();
+})();
 
 type FetchOpts = {
   revalidate?: number;
@@ -82,6 +91,66 @@ function lastSegment(s: string): string {
   return parts[parts.length - 1] || s;
 }
 
+function humanizeSlug(s: string): string {
+  if (!s) return s;
+  return s
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// Samehadaku/otakudesu wrap responses as { status, creator, message, data, pagination }.
+// Unwrap to whatever the actual payload object is so downstream pickers don't
+// need to know the envelope.
+function unwrap(r: SankaUnknown): SankaUnknown {
+  if (r && typeof r === "object" && "data" in r) {
+    const d = (r as { data?: unknown }).data;
+    if (d && typeof d === "object" && !Array.isArray(d)) {
+      return d as SankaUnknown;
+    }
+  }
+  return r;
+}
+
+// Pull a list of cards from a response, regardless of which provider/key wraps it.
+function extractList(
+  r: SankaUnknown,
+  ...preferredKeys: string[]
+): SankaUnknown[] {
+  const data = unwrap(r);
+  // Samehadaku /home has nested sections each with their own animeList.
+  for (const k of [...preferredKeys, "animeList", "animes", "results", "list", "batchList"]) {
+    const v = (data as SankaUnknown)[k];
+    if (Array.isArray(v)) return v as SankaUnknown[];
+    if (v && typeof v === "object" && Array.isArray((v as SankaUnknown).animeList)) {
+      return (v as SankaUnknown).animeList as SankaUnknown[];
+    }
+  }
+  // Animasu sometimes returns sections at the top level (not wrapped in `data`).
+  for (const k of ["ongoing", "complete", "completed", "popular", "recent", "movies", "batch", "latest"]) {
+    const v = (r as SankaUnknown)[k];
+    if (Array.isArray(v)) return v as SankaUnknown[];
+    if (v && typeof v === "object" && Array.isArray((v as SankaUnknown).animeList)) {
+      return (v as SankaUnknown).animeList as SankaUnknown[];
+    }
+  }
+  return [];
+}
+
+function hasNextPage(payload: SankaUnknown): boolean {
+  const pag = (payload as SankaUnknown)?.pagination as SankaUnknown | undefined;
+  if (pag && typeof pag === "object") {
+    if (typeof pag.hasNext === "boolean") return pag.hasNext;
+    const cur = Number(pick(pag, "currentPage", "page", "current"));
+    const total = Number(pick(pag, "totalPages", "lastPage", "total"));
+    if (Number.isFinite(cur) && Number.isFinite(total) && total > 0) {
+      return cur < total;
+    }
+  }
+  return false;
+}
+
 function adaptGenres(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -97,22 +166,47 @@ function adaptGenres(raw: unknown): string[] {
 }
 
 function adaptCard(s: SankaUnknown): AnimeCardItem {
-  const rawSlug = asString(pick(s, "slug", "url", "endpoint", "link"));
+  // Samehadaku exposes `animeId` as the canonical slug; it also returns `href`
+  // like `/samehadaku/anime/<slug>`. Animasu uses `slug`. Pick whichever exists.
+  const animeId = asString(pick(s, "animeId", "anime_id"));
+  const rawSlug =
+    animeId ||
+    asString(pick(s, "slug", "url", "endpoint", "link", "href"));
   const slug = lastSegment(rawSlug) || rawSlug;
+  // Score can be a flat string (animasu) or `{value, users}` (samehadaku).
+  let score = asString(pick(s, "score", "rating"));
+  if (!score) {
+    const sc = (s as SankaUnknown).score as SankaUnknown | undefined;
+    if (sc && typeof sc === "object") {
+      score = asString(pick(sc, "value", "score"));
+    }
+  }
   return {
     id: slug || asString(pick(s, "id"), Math.random().toString(36).slice(2)),
     url: slug,
     judul: asString(pick(s, "title", "judul", "name")),
     cover: asString(pick(s, "poster", "image", "cover", "thumbnail")),
-    lastch: asString(pick(s, "episode", "current_episode", "lastch")),
-    lastup: asString(pick(s, "release_day", "releaseDate", "updated_on", "lastup")),
+    lastch: asString(
+      pick(s, "episodes", "episode", "current_episode", "lastch")
+    ),
+    lastup: asString(
+      pick(
+        s,
+        "releasedOn",
+        "release_day",
+        "releaseDate",
+        "updated_on",
+        "lastup",
+        "status_or_day"
+      )
+    ),
     type: asString(pick(s, "type")),
-    score: asString(pick(s, "score", "rating")),
+    score,
     status: asString(pick(s, "status")),
     sinopsis: asString(pick(s, "synopsis", "sinopsis")),
     studio: asString(pick(s, "studio", "studios")),
     rilis: asString(pick(s, "aired", "released", "rilis")),
-    genre: adaptGenres(pick(s, "genres", "genre")),
+    genre: adaptGenres(pick(s, "genreList", "genres", "genre")),
   };
 }
 
@@ -130,24 +224,34 @@ function adaptOngoing(s: SankaUnknown, idx: number): OngoingItem {
 }
 
 function adaptEpisode(e: SankaUnknown, idx: number): EpisodeItem {
-  const rawSlug = asString(pick(e, "slug", "url", "endpoint", "link"));
+  // Samehadaku uses `episodeId` (`hidarikiki-no-eren-episode-5`) and `href`
+  // (`/samehadaku/episode/<episodeId>`); animasu uses `slug`/`url`.
+  const episodeId = asString(pick(e, "episodeId", "episode_id"));
+  const rawSlug =
+    episodeId ||
+    asString(pick(e, "slug", "url", "endpoint", "link", "href"));
   const slug = lastSegment(rawSlug) || rawSlug;
-  const name = asString(pick(e, "name", "title", "ep", "episode"));
-  // Try to extract just the episode number for `ch`. The upstream usually sends
+  // Title may be a number (samehadaku sends `"title": 5`) or a string.
+  const titleRaw = pick(e, "title", "name", "ep", "episode");
+  const titleStr =
+    typeof titleRaw === "number" ? String(titleRaw) : asString(titleRaw);
+  // Try to extract just the episode number for `ch`. Animasu sends
   // strings like "Episode 12" or "Ep. 12 Subtitle Indonesia".
-  const m = name.match(/(?:ep(?:isode)?\.?\s*)?(\d+(?:\.\d+)?)/i);
-  const ch = m ? m[1] : asString(pick(e, "episode_number", "number", "ch")) || name;
+  const m = titleStr.match(/(?:ep(?:isode)?\.?\s*)?(\d+(?:\.\d+)?)/i);
+  const ch =
+    (m ? m[1] : asString(pick(e, "episode_number", "number", "ch"))) ||
+    titleStr;
   return {
     id: idx,
     url: slug,
     ch: ch || String(idx + 1),
-    date: asString(pick(e, "release_date", "date", "updated_on")),
+    date: asString(pick(e, "releasedOn", "release_date", "date", "updated_on")),
   };
 }
 
 function adaptDetail(slug: string, payload: SankaUnknown): DetailItem | null {
-  // Sankavollerei returns either { detail: {...} } or the detail directly. Be
-  // defensive about both layouts.
+  // Sankavollerei returns either { detail: {...} } (legacy), or { data: {...} }
+  // (samehadaku/otakudesu), or the detail directly (animasu).
   const detail =
     (payload.detail as SankaUnknown | undefined) ??
     (payload.data as SankaUnknown | undefined) ??
@@ -155,7 +259,7 @@ function adaptDetail(slug: string, payload: SankaUnknown): DetailItem | null {
   if (!detail || typeof detail !== "object") return null;
 
   const episodesRaw = asArray<SankaUnknown>(
-    pick(detail, "episodes", "episode_list", "chapters", "chapter")
+    pick(detail, "episodeList", "episodes", "episode_list", "chapters", "chapter")
   );
   // Existing UI expects newest-first ordering. Some upstreams send oldest-first.
   let chapter = episodesRaw.map((e, i) => adaptEpisode(e, i));
@@ -171,33 +275,71 @@ function adaptDetail(slug: string, payload: SankaUnknown): DetailItem | null {
     }
   }
 
+  // Samehadaku returns `score: { value, users }` and animasu returns flat string.
+  let rating = asString(pick(detail, "score", "rating"));
+  if (!rating) {
+    const sc = (detail as SankaUnknown).score as SankaUnknown | undefined;
+    if (sc && typeof sc === "object") {
+      rating = asString(pick(sc, "value", "score"));
+    }
+  }
+
+  // Samehadaku nests synopsis under { paragraphs: [...], connections: [...] }.
+  let sinopsis = asString(pick(detail, "synopsis", "sinopsis", "description"));
+  if (!sinopsis) {
+    const syn = (detail as SankaUnknown).synopsis as SankaUnknown | undefined;
+    if (syn && typeof syn === "object") {
+      const paras = asArray<unknown>(pick(syn, "paragraphs"));
+      sinopsis = paras
+        .map((p) => (typeof p === "string" ? p : asString(p as unknown)))
+        .filter(Boolean)
+        .join("\n\n");
+    }
+  }
+
+  // Samehadaku detail often has `title: ""` — fall back to english/japanese/slug.
+  let judul = asString(pick(detail, "title", "judul", "name"));
+  if (!judul) judul = asString(pick(detail, "english", "japanese", "synonyms"));
+  if (!judul) judul = humanizeSlug(slug);
+
   return {
     id: 0,
     series_id: slug,
     cover: asString(pick(detail, "poster", "image", "cover")),
-    judul: asString(pick(detail, "title", "judul", "name")),
+    judul,
     type: asString(pick(detail, "type")),
     status: asString(pick(detail, "status")),
-    rating: asString(pick(detail, "score", "rating")),
+    rating,
     published: asString(pick(detail, "aired", "released", "publishedDate")),
-    author: asString(pick(detail, "author", "studio", "studios")),
-    genre: adaptGenres(pick(detail, "genres", "genre")),
-    sinopsis: asString(pick(detail, "synopsis", "sinopsis", "description")),
+    author: asString(pick(detail, "studios", "studio", "author")),
+    genre: adaptGenres(pick(detail, "genreList", "genres", "genre")),
+    sinopsis,
     chapter,
   };
 }
 
-function adaptStream(payload: SankaUnknown): StreamItem | null {
-  // Sankavollerei (animasu/samehadaku/otakudesu) returns embeddable iframe URLs
-  // grouped under `streams` (sometimes `mirror`, `server`). We squeeze them into
-  // the existing `StreamItem` shape by storing them under fake quality buckets
-  // — the player detects iframes by URL and switches rendering mode.
-  const rawStreams = asArray<SankaUnknown>(
-    pick(payload, "streams", "stream", "mirror", "mirrors", "servers", "server")
-  );
-  if (!rawStreams.length) return null;
+function inferQuality(entry: SankaUnknown, name: string): StreamQuality {
+  const candidate = asString(
+    pick(entry, "quality", "reso", "resolution", "size", "title")
+  ).toLowerCase();
+  const tag = `${candidate} ${name}`.toLowerCase();
+  if (tag.includes("1080") || tag.includes("fullhd")) return "1080p";
+  if (tag.includes("720") || tag.includes("hd")) return "720p";
+  if (tag.includes("480")) return "480p";
+  if (tag.includes("360") || tag.includes("sd")) return "360p";
+  return "720p";
+}
 
-  // Bucket entries by inferred quality (default 720p when missing).
+function adaptStream(payload: SankaUnknown): StreamItem | null {
+  // Two upstream shapes:
+  //   - Animasu: top-level `streams` / `mirror` / `servers` array of
+  //     `{url, quality, name}`. We just bucket by quality.
+  //   - Samehadaku: { defaultStreamingUrl, server.qualities[].serverList[],
+  //     downloadUrl.formats[].qualities[].urls[] }. We promote the default URL
+  //     as the primary playable, then flatten download URLs into quality
+  //     buckets so DownloadSection has multi-host options to offer.
+  const data = unwrap(payload);
+
   const buckets: Record<StreamQuality, StreamLink[]> = {
     "360p": [],
     "480p": [],
@@ -205,33 +347,68 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
     "1080p": [],
   };
 
-  const inferQuality = (entry: SankaUnknown, name: string): StreamQuality => {
-    const candidate = asString(
-      pick(entry, "quality", "reso", "resolution", "size")
-    ).toLowerCase();
-    const tag = `${candidate} ${name}`.toLowerCase();
-    if (tag.includes("1080")) return "1080p";
-    if (tag.includes("720") || tag.includes("hd")) return "720p";
-    if (tag.includes("480")) return "480p";
-    if (tag.includes("360") || tag.includes("sd")) return "360p";
-    return "720p";
+  let provideId = 0;
+  const pushLink = (q: StreamQuality, link: string) => {
+    if (!link) return;
+    buckets[q].push({
+      link,
+      provide: provideId,
+      id: provideId,
+      reso: q,
+      size_kb: null,
+    });
+    provideId++;
   };
 
-  rawStreams.forEach((entry, idx) => {
+  // Path A: animasu-style flat streams array.
+  const rawStreams = asArray<SankaUnknown>(
+    pick(data, "streams", "stream", "mirror", "mirrors", "servers")
+  );
+  rawStreams.forEach((entry) => {
     const link = asString(pick(entry, "url", "link", "src", "embed"));
     if (!link) return;
     const name = asString(
       pick(entry, "name", "label", "server", "provider", "title")
     );
-    const q = inferQuality(entry, name);
-    buckets[q].push({
-      link,
-      provide: idx,
-      id: idx,
-      reso: q,
+    pushLink(inferQuality(entry, name), link);
+  });
+
+  // Path B: samehadaku-style defaultStreamingUrl (always the playable iframe).
+  const defaultUrl = asString(
+    pick(data, "defaultStreamingUrl", "default_streaming_url")
+  );
+  if (defaultUrl) {
+    // Make it the very first 720p entry so VideoPlayer picks it as default.
+    buckets["720p"].unshift({
+      link: defaultUrl,
+      provide: 9000,
+      id: 9000,
+      reso: "720p",
       size_kb: null,
     });
-  });
+  }
+
+  // Path B (cont.): downloadUrl.formats[].qualities[].urls[] — flatten as
+  // download links bucketed by quality. Format label (MKV/MP4/x265) is appended
+  // implicitly via host name in DownloadSection.
+  const dl = (data.downloadUrl ?? data.download_url ?? data.download) as
+    | SankaUnknown
+    | undefined;
+  if (dl && typeof dl === "object") {
+    const formats = asArray<SankaUnknown>(pick(dl, "formats", "data"));
+    formats.forEach((fmt) => {
+      const qualities = asArray<SankaUnknown>(pick(fmt, "qualities", "list"));
+      qualities.forEach((qe) => {
+        const qLabel = asString(pick(qe, "title", "name", "quality"));
+        const q = inferQuality(qe, qLabel);
+        const urls = asArray<SankaUnknown>(pick(qe, "urls", "links"));
+        urls.forEach((u) => {
+          const link = asString(pick(u, "url", "link", "href"));
+          pushLink(q, link);
+        });
+      });
+    });
+  }
 
   const reso = (Object.keys(buckets) as StreamQuality[]).filter(
     (q) => buckets[q].length > 0
@@ -256,29 +433,29 @@ function adaptStream(payload: SankaUnknown): StreamItem | null {
 // ---------- Public API ----------
 
 export async function getHome(page = 1): Promise<HomeResponse> {
-  // Sanka /home returns the same kind of mixed dashboard payload the old API
-  // exposed at `/anime/home`. Fall back to /ongoing if /home shape is empty.
+  // Samehadaku /home returns nested sections (recent, popular, batch, movie).
+  // We use `recent.animeList` for the homepage feed. Animasu /home returns a
+  // flat `animes`/`data` array. extractList() handles both.
   try {
     const r = await apiFetch<SankaUnknown>(
       `/home${page > 1 ? `?page=${page}` : ""}`,
       { revalidate: 300 }
     );
-    const list = asArray<SankaUnknown>(
-      pick(r, "animes", "data", "results", "list")
-    );
+    const list = extractList(r, "recent", "ongoing", "latest");
     if (list.length) return { data: list.map(adaptCard) };
-    // Some providers nest under `ongoing` / `latest` arrays inside /home.
-    const ongoing = asArray<SankaUnknown>(pick(r, "ongoing", "latest"));
-    if (ongoing.length) return { data: ongoing.map(adaptCard) };
   } catch {
     /* fall through */
   }
-  // Fallback: build a "home" page from /ongoing.
-  const r = await apiFetch<SankaUnknown>(`/ongoing?page=${page}`, {
-    revalidate: 300,
-  });
-  const list = asArray<SankaUnknown>(pick(r, "animes", "data"));
-  return { data: list.map(adaptCard) };
+  // Fallback: build a "home" page from /ongoing or /recent.
+  try {
+    const r = await apiFetch<SankaUnknown>(`/ongoing?page=${page}`, {
+      revalidate: 300,
+    });
+    const list = extractList(r);
+    return { data: list.map(adaptCard) };
+  } catch {
+    return { data: [] };
+  }
 }
 
 export async function getHomePool(pages = 3): Promise<HomeResponse["data"]> {
@@ -300,32 +477,51 @@ export async function getHomePool(pages = 3): Promise<HomeResponse["data"]> {
 
 export async function getOngoing(page = 1): Promise<OngoingResponse> {
   const path = page > 1 ? `/ongoing?page=${page}` : `/ongoing`;
-  const r = await apiFetch<SankaUnknown>(path, { revalidate: 600 });
-  const list = asArray<SankaUnknown>(pick(r, "animes", "data"));
-  return { data: list.map((s, i) => adaptOngoing(s, i)) };
+  try {
+    const r = await apiFetch<SankaUnknown>(path, { revalidate: 600 });
+    const list = extractList(r);
+    return { data: list.map((s, i) => adaptOngoing(s, i)) };
+  } catch {
+    return { data: [] };
+  }
 }
 
 export async function getJadwal(): Promise<JadwalResponse> {
-  // Sankavollerei exposes `/schedule` returning a list of days, each with an
-  // `animes` array. Defensive over field names.
+  // Sankavollerei exposes `/schedule` with shape:
+  //   samehadaku: { data: { days: [{ day, animeList: [...] }] } }
+  //   animasu:    { schedule: [...] } / top-level `days`.
   try {
     const r = await apiFetch<SankaUnknown>(`/schedule`, { revalidate: 1800 });
-    const days = asArray<SankaUnknown>(pick(r, "days", "schedule", "data", "animes"));
+    const root = unwrap(r);
+    const days = asArray<SankaUnknown>(pick(root, "days", "schedule", "animes"));
     const data: JadwalEntry[] = days.map((d) => {
-      const animes = asArray<SankaUnknown>(pick(d, "animes", "list", "items"));
+      const animes = asArray<SankaUnknown>(
+        pick(d, "animeList", "animes", "list", "items")
+      );
       return {
         day: asString(pick(d, "day", "name")),
         date: asString(pick(d, "date")),
         date_ts: 0,
         animeList: animes.map((a, i) => {
-          const slug = lastSegment(asString(pick(a, "slug", "url", "endpoint")));
+          const animeId = asString(pick(a, "animeId", "anime_id"));
+          const rawSlug =
+            animeId ||
+            asString(pick(a, "slug", "url", "endpoint", "href"));
+          const slug = lastSegment(rawSlug) || rawSlug;
+          let score = asString(pick(a, "score", "rating"));
+          if (!score) {
+            const sc = (a as SankaUnknown).score as SankaUnknown | undefined;
+            if (sc && typeof sc === "object") {
+              score = asString(pick(sc, "value", "score"));
+            }
+          }
           return {
             anime_name: asString(pick(a, "title", "name", "anime_name")),
             id: i,
             link: slug,
             cover: asString(pick(a, "poster", "cover", "image")),
-            time: asString(pick(a, "time")),
-            score: asString(pick(a, "score", "rating")),
+            time: asString(pick(a, "time", "releasedOn")),
+            score,
           };
         }),
       };
@@ -351,18 +547,12 @@ async function fetchLetterPage(letter: string, page: number) {
   );
 }
 
-function hasNextPage(payload: SankaUnknown): boolean {
-  const pag = payload?.pagination as SankaUnknown | undefined;
-  if (!pag || typeof pag !== "object") return false;
-  return Boolean(pag.hasNext);
-}
-
 async function collectLetter(letter: string, maxPages: number) {
   const items: SankaUnknown[] = [];
   for (let page = 1; page <= maxPages; page++) {
     try {
       const payload = await fetchLetterPage(letter, page);
-      const list = asArray<SankaUnknown>(pick(payload, "animes", "data"));
+      const list = extractList(payload);
       if (!list.length) break;
       items.push(...list);
       if (!hasNextPage(payload)) break;
@@ -373,11 +563,51 @@ async function collectLetter(letter: string, maxPages: number) {
   return items;
 }
 
+// Number of /completed pages to walk when building the samehadaku A-Z fallback.
+// Each page ≈ 30 anime; 8 pages ≈ 240 anime grouped by first letter for SSR.
+const SAMEHADAKU_AZ_PAGES = 8;
+
+async function buildAzFromCompleted(
+  pages: number
+): Promise<AnimeListResponse> {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const out: AnimeListResponse = {};
+  letters.forEach((l) => (out[l] = []));
+  const responses = await Promise.allSettled(
+    Array.from({ length: pages }, (_, i) =>
+      apiFetch<SankaUnknown>(`/completed?page=${i + 1}`, { revalidate: 3600 })
+    )
+  );
+  const seen = new Set<string>();
+  for (const r of responses) {
+    if (r.status !== "fulfilled") continue;
+    for (const raw of extractList(r.value)) {
+      const c = adaptCard(raw);
+      if (!c.url || seen.has(c.url)) continue;
+      seen.add(c.url);
+      const first = (c.judul || c.url).charAt(0).toUpperCase();
+      const bucket = /^[A-Z]$/.test(first) ? first : "#";
+      if (!out[bucket]) out[bucket] = [];
+      out[bucket].push({
+        id: c.id != null ? String(c.id) : c.url,
+        judul: c.judul,
+        url: c.url,
+        cover: c.cover,
+      });
+    }
+  }
+  return out;
+}
+
 export async function getAnimeList(): Promise<AnimeListResponse> {
-  // Sankavollerei `/animelist?letter=A&page=1` returns `{animes: [...],
-  // pagination: { hasNext, ... }}`. We walk pages per letter until hasNext is
-  // false (or hit the safety cap) and dedupe by slug to build a much fuller
-  // A-Z catalog than the previous "page 1 only" implementation.
+  if (PROVIDER === "samehadaku") {
+    // Samehadaku has no `/animelist?letter=X&page=N` endpoint. Build an A-Z
+    // catalog by walking `/completed` pages and bucketing by first letter.
+    return buildAzFromCompleted(SAMEHADAKU_AZ_PAGES);
+  }
+  // Animasu: `/animelist?letter=A&page=1` returns `{animes: [...],
+  // pagination: { hasNext, ... }}`. Walk pages per letter until hasNext is
+  // false (or hit the safety cap) and dedupe by slug.
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   const responses = await Promise.allSettled(
     letters.map((l) => collectLetter(l, ANIME_LIST_MAX_PAGES_PER_LETTER))
@@ -411,12 +641,31 @@ export async function getAnimeListLetter(
   letter: string,
   page: number
 ): Promise<{ items: AnimeCardItem[]; hasNext: boolean }> {
-  // Single-letter / single-page fetch used by the client-side "Lihat lebih
-  // banyak" button on the anime list page. Returns adapted cards plus the
+  if (PROVIDER === "samehadaku") {
+    // Walk /completed pages and filter to entries whose title starts with
+    // `letter`. Each click of "Lihat lebih banyak {letter}" fetches the next
+    // upstream completed page and surfaces only matches.
+    try {
+      const r = await apiFetch<SankaUnknown>(`/completed?page=${page}`, {
+        revalidate: 3600,
+      });
+      const list = extractList(r);
+      const items = list
+        .map(adaptCard)
+        .filter(
+          (c) =>
+            (c.judul || c.url).charAt(0).toUpperCase() === letter.toUpperCase()
+        );
+      return { items, hasNext: hasNextPage(r) || list.length > 0 };
+    } catch {
+      return { items: [], hasNext: false };
+    }
+  }
+  // Single-letter / single-page fetch (animasu). Returns adapted cards plus the
   // upstream `hasNext` flag so the UI knows when to stop paging.
   try {
     const payload = await fetchLetterPage(letter, page);
-    const list = asArray<SankaUnknown>(pick(payload, "animes", "data"));
+    const list = extractList(payload);
     return {
       items: list.map(adaptCard),
       hasNext: hasNextPage(payload),
@@ -430,10 +679,26 @@ export async function getCompletedPage(page: number): Promise<{
   items: AnimeCardItem[];
   hasMore: boolean;
 }> {
-  // Completed/finished anime: we walk the full alphabetical catalog and
-  // filter to status == "Selesai". Each "page" of our infinite scroll maps to
-  // one upstream letter page, but we batch a small number of letters per
-  // call to keep payloads chunky enough that scrolling feels productive.
+  if (PROVIDER === "samehadaku") {
+    // Samehadaku exposes `/completed?page=N` directly with ~30 anime per page.
+    try {
+      const r = await apiFetch<SankaUnknown>(`/completed?page=${page}`, {
+        revalidate: 1800,
+      });
+      const list = extractList(r);
+      const items = list.map(adaptCard).filter((c) => Boolean(c.url));
+      // hasMore: trust pagination flag if present; otherwise, presence of items
+      // implies there may be more (page < known total).
+      return {
+        items,
+        hasMore: hasNextPage(r) || (items.length > 0 && items.length >= 24),
+      };
+    } catch {
+      return { items: [], hasMore: false };
+    }
+  }
+  // Animasu fallback: walk the full alphabetical catalog and filter to
+  // status == "Selesai". Each infinite-scroll page maps to a slice of letters.
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
   const LETTERS_PER_PAGE = 2;
   const startIdx = (page - 1) * LETTERS_PER_PAGE;
@@ -462,12 +727,23 @@ export async function getCompletedPage(page: number): Promise<{
 }
 
 export async function getDetail(series: string): Promise<DetailResponse> {
-  const r = await apiFetch<SankaUnknown>(
-    `/detail/${encodeURIComponent(series)}`,
-    { revalidate: 600 }
-  );
-  const detail = adaptDetail(series, r);
-  return { data: detail ? [detail] : [] };
+  // samehadaku uses `/anime/{slug}`; animasu uses `/detail/{slug}`. Try the
+  // provider-preferred route first, then fall back to the other.
+  const enc = encodeURIComponent(series);
+  const candidates =
+    PROVIDER === "samehadaku"
+      ? [`/anime/${enc}`, `/detail/${enc}`]
+      : [`/detail/${enc}`, `/anime/${enc}`];
+  for (const path of candidates) {
+    try {
+      const r = await apiFetch<SankaUnknown>(path, { revalidate: 600 });
+      const detail = adaptDetail(series, r);
+      if (detail) return { data: [detail] };
+    } catch {
+      /* try next */
+    }
+  }
+  return { data: [] };
 }
 
 export async function getStream(params: {
@@ -475,18 +751,21 @@ export async function getStream(params: {
   series?: string;
   episode?: number;
 }): Promise<StreamResponse> {
-  const r = await apiFetch<SankaUnknown>(
-    `/episode/${encodeURIComponent(params.slug)}`,
-    { revalidate: 60 }
-  );
-  const stream = adaptStream(r);
-  return { data: stream ? [stream] : [] };
+  try {
+    const r = await apiFetch<SankaUnknown>(
+      `/episode/${encodeURIComponent(params.slug)}`,
+      { revalidate: 60 }
+    );
+    const stream = adaptStream(r);
+    return { data: stream ? [stream] : [] };
+  } catch {
+    return { data: [] };
+  }
 }
 
 export async function search(query: string, page = 1): Promise<SearchResponse> {
-  // Sankavollerei animasu uses `/search/${query}` (no pagination param), other
-  // providers use `/search?q=${query}&page=${page}`. We try query-string first
-  // then fall back to path style.
+  // samehadaku/otakudesu use `/search?q=${query}&page=${page}`. Animasu uses
+  // `/search/${query}` (no pagination). Try query-string first, fall back.
   let payload: SankaUnknown | null = null;
   try {
     payload = await apiFetch<SankaUnknown>(
@@ -497,12 +776,16 @@ export async function search(query: string, page = 1): Promise<SearchResponse> {
     /* try path style */
   }
   if (!payload) {
-    payload = await apiFetch<SankaUnknown>(
-      `/search/${encodeURIComponent(query)}`,
-      { revalidate: 120 }
-    );
+    try {
+      payload = await apiFetch<SankaUnknown>(
+        `/search/${encodeURIComponent(query)}`,
+        { revalidate: 120 }
+      );
+    } catch {
+      return { data: [{ jumlah: 0, result: [] }] };
+    }
   }
-  const list = asArray<SankaUnknown>(pick(payload, "animes", "data", "results"));
+  const list = extractList(payload);
   const result = list.map(adaptCard);
   return { data: [{ jumlah: result.length, result }] };
 }
