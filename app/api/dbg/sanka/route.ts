@@ -9,7 +9,9 @@ const BASE =
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const path = searchParams.get("path") ?? "/ongoing";
-  const url = `${BASE}${path}`;
+  const baseOverride = searchParams.get("base");
+  const base = baseOverride ?? BASE;
+  const url = `${base}${path}`;
   try {
     const res = await fetch(url, {
       cache: "no-store",
